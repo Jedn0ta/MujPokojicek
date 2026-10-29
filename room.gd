@@ -138,6 +138,8 @@ func _process(d: float) -> void:
 			"twinkle":
 				node.scale = Vector3.ONE * (0.8 + 0.25 * sin(_t * 3.0 + ph))
 				node.rotation.y = _t + ph
+			"snap":
+				node.rotation.x = float(m.get("s", 1)) * (0.12 + 0.5 * maxf(0.0, sin(_t * 1.6 + ph)) ** 4)
 			"sway":
 				node.rotation.z = sin(_t * 1.2 + ph) * 0.06
 				node.rotation.x = cos(_t + ph) * 0.04

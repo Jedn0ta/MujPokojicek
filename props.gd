@@ -21,6 +21,11 @@ static func glow(c: Color) -> StandardMaterial3D:
 	m.emission_enabled = true; m.emission = c; m.emission_energy_multiplier = 0.8
 	return m
 
+static func _pot(n: Node3D, c: Color) -> void:
+	Yarn.cyl(n, Vector3(0, 0.08, 0), 0.11, 0.08, 0.16, c)
+	Yarn.cyl(n, Vector3(0, 0.165, 0), 0.115, 0.115, 0.03, c.darkened(0.1))
+	Yarn.cyl(n, Vector3(0, 0.17, 0), 0.1, 0.1, 0.01, Color("7a5235"), false)
+
 static func anim(node: Node3D, d: Dictionary) -> Node3D:
 	node.set_meta("anim", d)
 	return node
@@ -61,6 +66,106 @@ static func fish(n: Node3D, c: Color, size: float) -> Node3D:
 static func build(n: Node3D, id: String) -> bool:
 	var wood := Color("b5784a")
 	match id:
+		# ---------- kytičky ----------
+		"masozravka":
+			_pot(n, Color("7ad1c4"))
+			for k in 3:
+				var a := k * TAU / 3.0
+				var st := Node3D.new(); st.position = Vector3(0, 0.17, 0); st.rotation = Vector3(0.5, a, 0); n.add_child(st)
+				Yarn.cyl(st, Vector3(0, 0.1, 0), 0.015, 0.015, 0.2, Color("4fa860"), false)
+				var head := Node3D.new(); head.position = Vector3(0, 0.22, 0); head.scale = Vector3.ONE * 1.7; st.add_child(head)
+				for s in [-1, 1]:
+					var jaw := Node3D.new(); head.add_child(jaw)
+					Yarn.ball(jaw, Vector3(0, 0.03, 0.035 * s), Vector3(0.11, 0.05, 0.07), Color("8fd16a"))
+					Yarn.ball(jaw, Vector3(0, 0.035, 0.03 * s), Vector3(0.085, 0.03, 0.05), Color("ff5d73"), false)
+					for t in 5: Yarn.cyl(jaw, Vector3(-0.04 + t * 0.02, 0.05, 0.07 * s), 0.0, 0.008, 0.035, Color("f6fff0"), false, Vector3(0.6 * s, 0, 0))
+					anim(jaw, {"k": "snap", "ph": k * 1.7, "s": -s})
+				for s in [-1, 1]: Yarn.ball(head, Vector3(0.03 * s, 0.085, 0), Vector3(0.025, 0.03, 0.025), Color("231c2a"), false)
+		"slunecnice":
+			_pot(n, Color("ff9a5c"))
+			var st := Node3D.new(); st.position = Vector3(0, 0.17, 0); n.add_child(st)
+			Yarn.cyl(st, Vector3(0, 0.2, 0), 0.02, 0.025, 0.4, Color("4fa860"), false)
+			for s in [-1, 1]: Yarn.ball(st, Vector3(0.07 * s, 0.18, 0), Vector3(0.12, 0.02, 0.07), Color("5cbf6e"), false)
+			var fl := Node3D.new(); fl.position = Vector3(0, 0.44, 0.02); fl.rotation.x = 0.35; st.add_child(fl)
+			for k in 14:
+				var a := k * TAU / 14.0
+				Yarn.ball(fl, Vector3(cos(a) * 0.1, sin(a) * 0.1, 0), Vector3(0.07, 0.07, 0.015), Color("ffd43b"), false).rotation.z = a
+			Yarn.ball(fl, Vector3(0, 0, 0.01), Vector3(0.12, 0.12, 0.04), Color("8a5a35"))
+			for s in [-1, 1]: Yarn.ball(fl, Vector3(0.025 * s, 0.01, 0.035), Vector3(0.018, 0.022, 0.01), Color("231c2a"), false)
+			anim(st, {"k": "sway", "ph": 0.5})
+		"tulipany":
+			_pot(n, Color("ffd6e7"))
+			for k in 5:
+				var a := k * TAU / 5.0; var c: Color = [Color("ff5d73"), Color("ffc93c"), Color("ff8ab3"), Color("b197fc"), Color("ff7a3c")][k]
+				var p := Vector3(cos(a) * 0.05, 0.17, sin(a) * 0.05)
+				Yarn.cyl(n, p + Vector3(0, 0.1 + k * 0.01, 0), 0.012, 0.012, 0.2 + k * 0.02, Color("4fa860"), false)
+				var top := p + Vector3(0, 0.22 + k * 0.02, 0)
+				Yarn.ball(n, top, Vector3(0.06, 0.08, 0.06), c)
+				for t in 3: Yarn.cyl(n, top + Vector3(cos(t * 2.1) * 0.02, 0.04, sin(t * 2.1) * 0.02), 0.0, 0.02, 0.04, c, false)
+			for s in [-1, 1]: Yarn.ball(n, Vector3(0.06 * s, 0.24, 0), Vector3(0.04, 0.14, 0.015), Color("5cbf6e"), false).rotation.z = -0.4 * s
+		"ruze":
+			_pot(n, Color("ffffff"))
+			for k in 3:
+				var p := Vector3((k - 1) * 0.06, 0.17, (k % 2) * 0.03)
+				Yarn.cyl(n, p + Vector3(0, 0.12, 0), 0.012, 0.012, 0.24, Color("3f8f50"), false)
+				var top := p + Vector3(0, 0.27 + (k % 2) * 0.04, 0)
+				for l in 3: Yarn.ball(n, top + Vector3(0, l * 0.012, 0), Vector3(0.09 - l * 0.025, 0.06, 0.09 - l * 0.025), Color("e8343a").lightened(l * 0.12))
+				Yarn.ball(n, p + Vector3(0.03, 0.12, 0), Vector3(0.05, 0.015, 0.03), Color("4fa860"), false)
+		"kopretiny":
+			_pot(n, Color("6fa8ff"))
+			for k in 4:
+				var a := k * TAU / 4.0 + 0.4
+				var p := Vector3(cos(a) * 0.05, 0.17, sin(a) * 0.05)
+				Yarn.cyl(n, p + Vector3(0, 0.1, 0), 0.01, 0.01, 0.2, Color("4fa860"), false)
+				var fl := Node3D.new(); fl.position = p + Vector3(0, 0.21 + (k % 2) * 0.04, 0); fl.rotation.x = -0.4; fl.rotation.y = a; n.add_child(fl)
+				for t in 10:
+					var b := t * TAU / 10.0
+					Yarn.ball(fl, Vector3(cos(b) * 0.04, 0, sin(b) * 0.04), Vector3(0.035, 0.01, 0.015), Color.WHITE, false).rotation.y = -b
+				Yarn.ball(fl, Vector3(0, 0.005, 0), Vector3(0.03, 0.02, 0.03), Color("ffc93c"), false)
+		"levandule":
+			Yarn.box(n, Vector3(0, 0.07, 0), Vector3(0.34, 0.14, 0.14), Color("e8d8f4"))
+			for k in 7:
+				var x := -0.13 + k * 0.043
+				Yarn.cyl(n, Vector3(x, 0.22, 0), 0.006, 0.006, 0.18, Color("6f9a6a"), false)
+				for t in 5: Yarn.ball(n, Vector3(x, 0.27 + t * 0.022, 0), Vector3(0.025, 0.025, 0.025), Color("9b6bff").lightened(t * 0.06), false)
+			anim(n.get_child(n.get_child_count() - 1), {"k": "sway", "ph": 1.0})
+		"orchidej":
+			_pot(n, Color("f8f0ff"))
+			for s in [-1, 1]: Yarn.ball(n, Vector3(0.05 * s, 0.2, 0), Vector3(0.12, 0.03, 0.06), Color("3f8f50"), false)
+			Yarn.cyl(n, Vector3(0, 0.3, -0.02), 0.008, 0.008, 0.28, Color("6f9a6a"), false)
+			for k in 4:
+				var p := Vector3(0.03 * k, 0.42 - k * 0.04, 0.0)
+				for t in 5:
+					var b := t * TAU / 5.0
+					Yarn.ball(n, p + Vector3(cos(b) * 0.025, sin(b) * 0.025, 0.01), Vector3(0.035, 0.035, 0.01), Color("ff8ac8"), false)
+				Yarn.ball(n, p + Vector3(0, 0, 0.02), Vector3(0.015, 0.015, 0.015), Color("ffe14d"), false)
+		"monstera":
+			Yarn.cyl(n, Vector3(0, 0.12, 0), 0.17, 0.13, 0.24, Color("f2e6d0"))
+			for k in 6:
+				var a := k * TAU / 6.0
+				var lf := Node3D.new(); lf.position = Vector3(0, 0.24, 0); lf.rotation = Vector3(0.0, a, 0.0); n.add_child(lf)
+				Yarn.cyl(lf, Vector3(0, 0.12, 0.08), 0.01, 0.01, 0.28, Color("3f8f50"), false, Vector3(0.6, 0, 0))
+				var leaf := Yarn.ball(lf, Vector3(0, 0.28, 0.2), Vector3(0.22, 0.02, 0.2), Color("2f9e44"), false)
+				leaf.rotation.x = 0.5
+				for h in 2: Yarn.ball(lf, Vector3(0.05 * (h * 2 - 1), 0.285, 0.22), Vector3(0.03, 0.025, 0.07), Color("fff8ee"), false).rotation.x = 0.5
+				anim(lf, {"k": "sway", "ph": k})
+		"bonsai":
+			Yarn.box(n, Vector3(0, 0.04, 0), Vector3(0.34, 0.08, 0.24), Color("5a7ab8"))
+			Yarn.box(n, Vector3(0, 0.085, 0), Vector3(0.3, 0.01, 0.2), Color("8a6a4a"))
+			Yarn.cyl(n, Vector3(0.02, 0.15, 0), 0.025, 0.04, 0.14, Color("7a5235"), true, Vector3(0, 0, 0.35))
+			Yarn.cyl(n, Vector3(-0.04, 0.25, 0), 0.02, 0.025, 0.12, Color("7a5235"), true, Vector3(0, 0, -0.5))
+			for b in [Vector3(-0.08, 0.31, 0), Vector3(0.05, 0.3, 0.02), Vector3(-0.01, 0.36, -0.02), Vector3(0.1, 0.25, 0)]:
+				Yarn.ball(n, b, Vector3(0.12, 0.07, 0.1), Color("5cbf6e"))
+			Yarn.ball(n, Vector3(-0.1, 0.1, 0.06), Vector3(0.04, 0.03, 0.04), Color("cfc8d8"))
+		"zalivacka":
+			var c := Color("6fc8ff")
+			Yarn.cyl(n, Vector3(0, 0.1, 0), 0.08, 0.09, 0.2, c)
+			Yarn.cyl(n, Vector3(0.12, 0.13, 0), 0.012, 0.025, 0.2, c, true, Vector3(0, 0, -1.0))
+			Yarn.cyl(n, Vector3(0.21, 0.19, 0), 0.03, 0.012, 0.03, c.darkened(0.15), true, Vector3(0, 0, -1.0))
+			var h := Yarn.cyl(n, Vector3(-0.08, 0.16, 0), 0.06, 0.06, 0.015, c.darkened(0.1), false, Vector3(PI / 2, 0, 0))
+			h.scale = Vector3(1, 1, 1)
+			for s in [-1, 1]: Yarn.ball(n, Vector3(0.03 * s, 0.13, 0.085), Vector3(0.02, 0.025, 0.01), Color("231c2a"), false)
+			Yarn.ball(n, Vector3(0, 0.1, 0.087), Vector3(0.03, 0.012, 0.01), Color("ff8ab3"), false)
 		# ---------- zvířátka ----------
 		"akvarko":
 			Yarn.box(n, Vector3(0, 0.2, 0), Vector3(0.62, 0.4, 0.36), Color("8a6a50"))

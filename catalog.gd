@@ -54,10 +54,17 @@ const RAW := [
 	["koberec5", "koberce", "furniture/rug_rectangle_stripes_A", F, "dance", 1.5, 1.0, {"flat": true}],
 	["koberec6", "koberce", "furniture/rug_rectangle_stripes_B", F, "dance", 1.5, 1.0, {"flat": true}],
 	["kytka", "kytky", "", 1.0, "smell", 0.3, 0.3, {}],
-	["kaktus1", "kytky", "furniture/cactus_small_A", F, "smell", 0.25, 0.25, {}],
-	["kaktus2", "kytky", "furniture/cactus_small_B", F, "smell", 0.25, 0.25, {}],
 	["kaktus3", "kytky", "furniture/cactus_medium_A", F, "smell", 0.44, 0.42, {}],
-	["kaktus4", "kytky", "furniture/cactus_medium_B", F, "smell", 0.44, 0.42, {}],
+	["masozravka", "kytky", "", 1.0, "look", 0.3, 0.3, {"tip": "Mucholapka chytá mušky, ale prstíky nekouše."}],
+	["slunecnice", "kytky", "", 1.0, "smell", 0.3, 0.3, {"tip": "Slunečnice se otáčí za sluníčkem."}],
+	["tulipany", "kytky", "", 1.0, "smell", 0.3, 0.3, {}],
+	["ruze", "kytky", "", 1.0, "smell", 0.3, 0.3, {}],
+	["kopretiny", "kytky", "", 1.0, "smell", 0.3, 0.3, {}],
+	["levandule", "kytky", "", 1.0, "smell", 0.36, 0.2, {"tip": "Levandule krásně voní a pomáhá usnout."}],
+	["orchidej", "kytky", "", 1.0, "smell", 0.3, 0.3, {}],
+	["monstera", "kytky", "", 1.0, "look", 0.5, 0.5, {}],
+	["bonsai", "kytky", "", 1.0, "look", 0.35, 0.3, {"tip": "Bonsaj je malý stromeček, roste hodně pomalu."}],
+	["zalivacka", "kytky", "", 1.0, "play", 0.3, 0.2, {"tip": "Kytičky potřebují pít, ale ne moc."}],
 	["obraz1", "dekorace", "furniture/pictureframe_large_A", F, "look", 0.5, 0.1, {"lift": 0.95}],
 	["obraz2", "dekorace", "furniture/pictureframe_large_B", F, "look", 1.0, 0.1, {"lift": 0.95}],
 	["obraz3", "dekorace", "furniture/pictureframe_medium", F, "look", 0.35, 0.1, {"lift": 0.95}],
@@ -160,6 +167,7 @@ static func all() -> Dictionary:
 	return _all
 
 static func get_item(id: String) -> Dictionary:
+	if id.begins_with("kaktus"): id = "kaktus3"
 	return all().get(id, all()["kostky"])
 
 static func in_cat(cat: String) -> Array:
