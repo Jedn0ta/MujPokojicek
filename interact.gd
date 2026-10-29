@@ -78,5 +78,7 @@ static func window() -> Dictionary:
 	var x := Room_center_x()
 	return {"act": "window", "ax": x, "az": -1.55, "px": x, "pz": -1.55, "ry": PI}
 
+static var win_x := 0.2
+
 static func Room_center_x() -> float:
-	return -0.35 + 1.1 / 2.0
+	return win_x

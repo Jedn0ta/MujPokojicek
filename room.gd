@@ -3,7 +3,15 @@ extends Node3D
 ## Věci se berou z katalogu (catalog.gd).
 
 const HALF := Vector2(3.35, 2.0)
-const WINDOW := Rect2(-0.35, 0.8, 1.1, 0.8)   # na zadní stěně: x, y, šířka, výška
+const WINDOW := Rect2(-0.35, 0.8, 1.1, 0.8)   # výchozí okno na zadní stěně: x, y, šířka, výška
+static var win := WINDOW
+
+## Okno z uloženého pokojíčku, vždy celé na stěně.
+static func win_of(r: Dictionary) -> Rect2:
+	var a: Array = r.get("win", [WINDOW.position.x, WINDOW.position.y, WINDOW.size.x, WINDOW.size.y])
+	var w := clampf(a[2], 0.6, HALF.x * 2 - 0.8); var h := clampf(a[3], 0.5, 1.6)
+	var x := clampf(a[0], -HALF.x + 0.35, HALF.x - 0.35 - w); var y := clampf(a[1], 0.25, 2.05 - h)
+	return Rect2(x, y, w, h)
 
 var _items: Array = []
 var _anims: Array = []   # [uzel, nastavení, výchozí pozice]
@@ -12,6 +20,7 @@ static var _scenes := {}
 static var _pattern_cache := {}
 
 func build(r: Dictionary, sel: int) -> void:
+	win = win_of(r); Interact.win_x = win.get_center().x
 	for c in get_children(): c.free()
 	_items.clear(); _anims.clear()
 	var floor := MeshInstance3D.new(); var fb := BoxMesh.new(); fb.size = Vector3(HALF.x * 2, 0.1, HALF.y * 2)
@@ -19,7 +28,9 @@ func build(r: Dictionary, sel: int) -> void:
 	floor.material_override = pattern_mat(Data.pick(Data.FLOOR, r.get("floor", 0)), int(r.get("floorp", 0)), true)
 	add_child(floor)
 	var wm: StandardMaterial3D
-	if int(r.get("wallp", 0)) == 4:
+	if int(r.get("wallp", 0)) >= 5:
+		wm = mural_mat(int(r.get("wallp", 0)) - 5)
+	elif int(r.get("wallp", 0)) == 4:
 		wm = StandardMaterial3D.new(); wm.roughness = 0.9
 		wm.albedo_texture = preload("res://pixel_editor.gd").make_texture(r.get("pix", []), Data.pick(Data.WALL, r.get("wall", 0)))
 		wm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
@@ -33,15 +44,15 @@ func build(r: Dictionary, sel: int) -> void:
 	Yarn.box(self, Vector3(0, 0.04, -HALF.y + 0.005), Vector3(HALF.x * 2, 0.08, 0.02), Color.WHITE)
 	Yarn.box(self, Vector3(-HALF.x + 0.005, 0.04, 0), Vector3(0.02, 0.08, HALF.y * 2), Color.WHITE)
 	# okno
-	var wc := Vector3(WINDOW.position.x + WINDOW.size.x / 2, WINDOW.position.y + WINDOW.size.y / 2, -HALF.y)
-	Yarn.box(self, wc + Vector3(0, 0, 0.01), Vector3(WINDOW.size.x + 0.1, WINDOW.size.y + 0.1, 0.03), Color.WHITE)
-	Yarn.box(self, wc + Vector3(0, 0, 0.03), Vector3(WINDOW.size.x, WINDOW.size.y, 0.02), Color("a8dcff"))
-	Yarn.box(self, wc + Vector3(0, 0, 0.045), Vector3(0.04, WINDOW.size.y, 0.02), Color.WHITE)
-	Yarn.box(self, wc + Vector3(0, 0, 0.045), Vector3(WINDOW.size.x, 0.04, 0.02), Color.WHITE)
-	Yarn.box(self, wc + Vector3(0, -WINDOW.size.y / 2 - 0.06, 0.07), Vector3(WINDOW.size.x + 0.2, 0.04, 0.12), Color.WHITE)
+	var wc := Vector3(win.position.x + win.size.x / 2, win.position.y + win.size.y / 2, -HALF.y)
+	Yarn.box(self, wc + Vector3(0, 0, 0.01), Vector3(win.size.x + 0.1, win.size.y + 0.1, 0.03), Color.WHITE)
+	Yarn.box(self, wc + Vector3(0, 0, 0.03), Vector3(win.size.x, win.size.y, 0.02), Color("a8dcff"))
+	Yarn.box(self, wc + Vector3(0, 0, 0.045), Vector3(0.04, win.size.y, 0.02), Color.WHITE)
+	Yarn.box(self, wc + Vector3(0, 0, 0.045), Vector3(win.size.x, 0.04, 0.02), Color.WHITE)
+	Yarn.box(self, wc + Vector3(0, -win.size.y / 2 - 0.06, 0.07), Vector3(win.size.x + 0.2, 0.04, 0.12), Color.WHITE)
 	for s in [-1, 1]:
-		Yarn.box(self, wc + Vector3(s * (WINDOW.size.x / 2 + 0.06), 0.05, 0.08), Vector3(0.2, WINDOW.size.y + 0.25, 0.04), Data.pick(Data.YARN, r.get("curt", 0)))
-	Yarn.box(self, wc + Vector3(0, WINDOW.size.y / 2 + 0.16, 0.09), Vector3(WINDOW.size.x + 0.5, 0.03, 0.03), Color("b5784a"))
+		Yarn.box(self, wc + Vector3(s * (win.size.x / 2 + 0.06), 0.05, 0.08), Vector3(0.2, win.size.y + 0.25, 0.04), Data.pick(Data.YARN, r.get("curt", 0)))
+	Yarn.box(self, wc + Vector3(0, win.size.y / 2 + 0.16, 0.09), Vector3(win.size.x + 0.5, 0.03, 0.03), Color("b5784a"))
 	var items: Array = r.get("items", [])
 	for i in items.size():
 		var n := Node3D.new()
@@ -293,6 +304,21 @@ func toggle_lamp(i: int) -> void:
 	if i < _items.size():
 		var l = _items[i].get_node_or_null("light")
 		if l: l.visible = not l.visible
+
+## Obrázková tapeta: obrázek 3 m široký přes celou výšku stěny, opakuje se do stran.
+static func mural_mat(k: int) -> StandardMaterial3D:
+	var key := "mural%d" % k
+	if _pattern_cache.has(key): return _pattern_cache[key]
+	var m := StandardMaterial3D.new(); m.roughness = 0.9
+	m.albedo_texture = mural_tex(k)
+	m.uv1_triplanar = true
+	m.uv1_scale = Vector3(1.0 / 3.0, -1.0 / 2.2, 1.0 / 3.0)
+	m.uv1_offset = Vector3(0, 0.5, 0)
+	_pattern_cache[key] = m
+	return m
+
+static func mural_tex(k: int) -> Texture2D:
+	return load("res://wallpapers/%s.png" % Data.MURALS[clampi(k, 0, Data.MURALS.size() - 1)])
 
 ## Materiál se vzorem (tapety a podlahy), vzor se kreslí v kódu.
 static func pattern_mat(c: Color, kind: int, is_floor: bool) -> StandardMaterial3D:

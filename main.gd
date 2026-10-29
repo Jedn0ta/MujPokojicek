@@ -169,6 +169,7 @@ func _build_world(vp: SubViewport) -> void:
 	dolls = Node3D.new(); vp.add_child(dolls)
 	outside = Outside.new(); outside.position = OUT; outside.env = env; outside.sun = sun
 	vp.add_child(outside); outside.build()
+	outside.set_view(int(S.get("view", 0)))
 	outside.set_weather(int(S.get("weather", 0)), false)
 
 var _heart_t := 0.0
@@ -245,7 +246,7 @@ func _cam_button(k: String) -> void:
 func _update_camera(d: float) -> void:
 	if window_view:
 		cam.position = OUT + Vector3(0, 1.3, 4.6); cam.fov = 50
-		cam.look_at(OUT + Vector3(0, 1.9, -6))
+		cam.look_at(OUT + outside.look)
 		return
 	var k := clampf(d * 8.0, 0.0, 1.0)
 	_cur["t"] = (_cur["t"] as Vector3).lerp(cam_target, k)
@@ -474,6 +475,22 @@ func _on_stage_input(e: InputEvent) -> void:
 	elif e is InputEventMouseMotion and (e.button_mask & MOUSE_BUTTON_MASK_LEFT):
 		_p_move(0, e.position, e.relative)
 
+var win_drag := false
+var _win_off := Vector2.ZERO
+
+func _wall_hit(p: Vector2):
+	var h = Plane(Vector3(0, 0, 1), -Room.HALF.y + 0.05).intersects_ray(cam.project_ray_origin(p), cam.project_ray_normal(p))
+	return null if h == null else Vector2(h.x, h.y)
+
+## Větší / menší okno (tlačítka v zařizování).
+func _win_size(dw: float, dh: float) -> void:
+	var w: Rect2 = Room.win_of(S["room"])
+	var c := w.get_center()
+	S["room"]["win"] = [c.x - (w.size.x + dw) / 2, c.y - (w.size.y + dh) / 2, w.size.x + dw, w.size.y + dh]
+	var n: Rect2 = Room.win_of(S["room"])
+	S["room"]["win"] = [n.position.x, n.position.y, n.size.x, n.size.y]
+	Data.save_state(S); _refresh_stage()
+
 func _p_down(i: int, p: Vector2) -> void:
 	touches[i] = p
 	if touches.size() == 1:
@@ -486,6 +503,10 @@ func _p_down(i: int, p: Vector2) -> void:
 				dolls.get_child(0).sculpt_brush(hit, sculpt_tool, sculpt_size, sculpt_mirror)
 				return
 		if tab == "room" and edit_mode and not net.is_client and not window_view:
+			var wh = _wall_hit(p)
+			if wh != null and Room.win.grow(0.05).has_point(wh):
+				win_drag = true; _win_off = Room.win.position - wh; _moved = true
+				return
 			var hit = _floor_hit(p)
 			if hit != null:
 				var it := _nearest_item(S["room"]["items"], hit)
@@ -518,6 +539,14 @@ func _p_move(i: int, p: Vector2, rel: Vector2) -> void:
 		spin += rel.x * 0.012
 		for d in dolls.get_children(): d.rotation.y = spin
 		return
+	if win_drag:
+		var wh = _wall_hit(p)
+		if wh != null:
+			var w: Rect2 = Room.win; var np: Vector2 = wh + _win_off
+			S["room"]["win"] = [np.x, np.y, w.size.x, w.size.y]
+			var nw := Room.win_of(S["room"])
+			if nw.position.distance_to(w.position) > 0.04: _refresh_stage()
+		return
 	if dragging >= 0:
 		var hit = _floor_hit(p)
 		if hit != null:
@@ -538,6 +567,9 @@ func _p_up(i: int, p: Vector2) -> void:
 		S["hero"]["sculpt"] = dolls.get_child(0).hs.data()
 		Data.save_state(S); _refresh_stage()
 		return
+	if win_drag:
+		win_drag = false; Data.save_state(S); _refresh_stage()
+		return
 	if dragging >= 0:
 		dragging = -1; Data.save_state(S); paths.build(S["room"]["items"])
 		return
@@ -551,7 +583,7 @@ func _tap(p: Vector2) -> void:
 	var playing: bool = tab == "friends" or not edit_mode or net.is_client
 	if playing:
 		var wh = Plane(Vector3(0, 0, 1), -Room.HALF.y + 0.05).intersects_ray(cam.project_ray_origin(p), cam.project_ray_normal(p))
-		if wh != null and Room.WINDOW.grow(0.1).has_point(Vector2(wh.x, wh.y)):
+		if wh != null and Room.win.grow(0.1).has_point(Vector2(wh.x, wh.y)):
 			_my_cmd(Interact.window())
 			return
 		var hit = _floor_hit(p)
@@ -832,6 +864,10 @@ func _tune_rows(h: Dictionary) -> void:
 				Data.save_state(S); _refresh_stage(), 60, f)
 	_gap()
 
+func _view_tex(k: int) -> Texture2D:
+	var p := "res://icons/view_%d.png" % k
+	return load(p) if ResourceLoader.exists(p) else null
+
 func _opt_tex(key: String, i: int) -> Texture2D:
 	var p := "res://icons/opt_%s_%d.png" % [key, i]
 	return load(p) if ResourceLoader.exists(p) else null
@@ -852,6 +888,15 @@ func _build_tray() -> void:
 				frame.cols = GRIDS[k][0]; frame.rows = GRIDS[k][1]
 				_build_tray(); _new_round(), 96, lv)
 			b.selected = int(S.get("wlevel", 1)) == k + 1
+		_gap()
+		var vf := _flow()
+		for k in Outside.VIEWS.size():
+			var vb := _icon("", func():
+				S["view"] = k; Data.save_state(S); outside.set_view(k); outside.apply_sky()
+				for c in vf.get_children(): c.selected = false
+				vf.get_child(k).selected = true
+				_new_round(), 84, vf, _view_tex(k))
+			vb.selected = k == int(S.get("view", 0))
 		_gap()
 		var wf := _flow()
 		for k in Data.WEATHER.size():
@@ -924,11 +969,18 @@ func _build_tray() -> void:
 			_gap()
 			_opt_row("wall", Data.WALL.size(), r, Data.WALL, 64)
 			var wt := []
-			for k in Data.WALLP.size(): wt.append(Room.pattern_mat(Data.pick(Data.WALL, r.get("wall", 0)), k, false).albedo_texture)
+			for k in 4: wt.append(Room.pattern_mat(Data.pick(Data.WALL, r.get("wall", 0)), k, false).albedo_texture)
 			wt.append(null)
+			for k in Data.MURALS.size(): wt.append(Room.mural_tex(k))
 			_opt_row("wallp", Data.WALLP.size(), r, [], 84, wt)
 			if int(r.get("wallp", 0)) == 4: _pixel_tools(r)
 			_opt_row("curt", Data.YARN.size(), r, Data.YARN, 56)
+			var wf2 := _flow()
+			_icon("wider", func(): _win_size(0.3, 0), 64, wf2)
+			_icon("narrower", func(): _win_size(-0.3, 0), 64, wf2)
+			_icon("longer", func(): _win_size(0, 0.2), 64, wf2)
+			_icon("shorter", func(): _win_size(0, -0.2), 64, wf2)
+			_gap()
 			_opt_row("floor", Data.FLOOR.size(), r, Data.FLOOR, 64)
 			var ft := []
 			for k in Data.FLOORP.size(): ft.append(Room.pattern_mat(Data.pick(Data.FLOOR, r.get("floor", 0)), k, true).albedo_texture)
