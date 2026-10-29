@@ -66,6 +66,67 @@ static func fish(n: Node3D, c: Color, size: float) -> Node3D:
 static func build(n: Node3D, id: String) -> bool:
 	var wood := Color("b5784a")
 	match id:
+		# ---------- hudba a kufr ----------
+		"kufr":
+			var v := Color("9b6bff"); var g := Color("ffc93c")
+			Yarn.box(n, Vector3(0, 0.12, 0), Vector3(0.5, 0.24, 0.34), v)
+			var lid := Node3D.new(); lid.position = Vector3(0, 0.24, -0.17); n.add_child(lid)
+			Yarn.ball(lid, Vector3(0, 0.0, 0.17), Vector3(0.5, 0.14, 0.34), v.lightened(0.1))
+			for x in [-0.18, 0.18]: Yarn.box(n, Vector3(x, 0.15, 0), Vector3(0.04, 0.3, 0.35), g)
+			Yarn.box(n, Vector3(0, 0.2, 0.175), Vector3(0.08, 0.09, 0.02), g)
+			for k in 5:
+				var st := MeshInstance3D.new(); st.mesh = star_mesh(0.03, 0.01); st.material_override = glow(Color("fff3a0"))
+				st.position = Vector3(-0.2 + k * 0.1, 0.42 + (k % 2) * 0.06, 0); n.add_child(st)
+				anim(st, {"k": "twinkle", "ph": k})
+		"xylofon":
+			var cols := [Color("ff5d73"), Color("ff9a3c"), Color("ffe14d"), Color("5fd16a"), Color("4da3ff"), Color("9b6bff")]
+			for s in [-1, 1]: Yarn.box(n, Vector3(0, 0.03, 0.06 * s), Vector3(0.4, 0.03, 0.03), Color("b5784a"))
+			for k in 6: Yarn.box(n, Vector3(-0.16 + k * 0.064, 0.06, 0), Vector3(0.05, 0.02, 0.2 - k * 0.018), cols[k])
+			Yarn.cyl(n, Vector3(0.1, 0.09, 0.14), 0.006, 0.006, 0.2, Color("b5784a"), false, Vector3(0, 0, 1.4))
+			Yarn.ball(n, Vector3(0.2, 0.095, 0.14), Vector3(0.035, 0.035, 0.035), Color("ff5d73"), false)
+		"bubinek":
+			Yarn.cyl(n, Vector3(0, 0.1, 0), 0.14, 0.14, 0.2, Color("ff5d73"))
+			for y in [0.01, 0.19]: Yarn.cyl(n, Vector3(0, y, 0), 0.145, 0.145, 0.025, Color("ffc93c"), false)
+			Yarn.cyl(n, Vector3(0, 0.205, 0), 0.13, 0.13, 0.01, Color("fff8ee"), false)
+			for k in 6:
+				var a := k * TAU / 6.0
+				Yarn.cyl(n, Vector3(cos(a) * 0.14, 0.1, sin(a) * 0.14), 0.005, 0.005, 0.2, Color.WHITE, false, Vector3(0, 0, 0.35 if k % 2 == 0 else -0.35))
+			for s in [-1, 1]: Yarn.cyl(n, Vector3(0.05 * s, 0.24, 0.05), 0.006, 0.006, 0.18, Color("b5784a"), false, Vector3(1.2, 0, 0.3 * s))
+		"kytara":
+			var w := Color("ff9a5c")
+			var g := Node3D.new(); g.rotation.x = -0.25; n.add_child(g)
+			Yarn.ball(g, Vector3(0, 0.12, 0), Vector3(0.22, 0.24, 0.07), w)
+			Yarn.ball(g, Vector3(0, 0.27, 0), Vector3(0.17, 0.17, 0.07), w)
+			Yarn.cyl(g, Vector3(0, 0.15, 0.037), 0.035, 0.035, 0.005, Color("5a3a2a"), false, Vector3(PI / 2, 0, 0))
+			Yarn.box(g, Vector3(0, 0.44, 0), Vector3(0.04, 0.24, 0.03), Color("8a5a35"))
+			Yarn.box(g, Vector3(0, 0.58, 0), Vector3(0.06, 0.06, 0.03), Color("5a3a2a"))
+			for k in 4: Yarn.box(g, Vector3(-0.012 + k * 0.008, 0.33, 0.04), Vector3(0.002, 0.42, 0.002), Color("f0f0f0"))
+		"klavir":
+			var b := Color("ff8ab3")
+			Yarn.box(n, Vector3(0, 0.2, -0.06), Vector3(0.7, 0.4, 0.24), b)
+			Yarn.box(n, Vector3(0, 0.18, 0.1), Vector3(0.7, 0.04, 0.14), b.darkened(0.1))
+			for k in 12: Yarn.box(n, Vector3(-0.3 + k * 0.055, 0.205, 0.11), Vector3(0.048, 0.015, 0.11), Color.WHITE)
+			for k in 11:
+				if k % 7 in [2, 6]: continue
+				Yarn.box(n, Vector3(-0.272 + k * 0.055, 0.22, 0.09), Vector3(0.025, 0.02, 0.07), Color("2a2230"))
+			for x in [-0.32, 0.32]: Yarn.box(n, Vector3(x, 0.09, 0.12), Vector3(0.04, 0.18, 0.04), b.darkened(0.15))
+			Yarn.box(n, Vector3(0, 0.42, -0.02), Vector3(0.2, 0.12, 0.01), Color("fff8ee"))
+		"trumpetka":
+			var g := Color("ffc93c")
+			Yarn.cyl(n, Vector3(0, 0.06, 0), 0.015, 0.015, 0.22, g, false, Vector3(0, 0, PI / 2))
+			Yarn.cyl(n, Vector3(0.14, 0.06, 0), 0.06, 0.015, 0.08, g, false, Vector3(0, 0, -PI / 2))
+			Yarn.cyl(n, Vector3(-0.12, 0.06, 0), 0.02, 0.012, 0.03, g.darkened(0.2), false, Vector3(0, 0, PI / 2))
+			for k in 3: Yarn.cyl(n, Vector3(-0.02 + k * 0.035, 0.1, 0), 0.01, 0.01, 0.06, g.darkened(0.1), false)
+			Yarn.ball(n, Vector3(0, 0.03, 0), Vector3(0.12, 0.04, 0.05), g, false)
+		"tamburina":
+			Yarn.cyl(n, Vector3(0, 0.03, 0), 0.12, 0.12, 0.05, Color("6fa8ff"))
+			Yarn.cyl(n, Vector3(0, 0.056, 0), 0.11, 0.11, 0.005, Color("fff8ee"), false)
+			for k in 6:
+				var a := k * TAU / 6.0
+				for s in [-1, 1]: Yarn.cyl(n, Vector3(cos(a) * 0.12, 0.03 + s * 0.006, sin(a) * 0.12), 0.022, 0.022, 0.005, Color("e0e4ee"), false)
+			for k in 4:
+				var a := k * TAU / 4.0 + 0.4
+				Yarn.ball(n, Vector3(cos(a) * 0.12, 0.08, sin(a) * 0.12), Vector3(0.06, 0.02, 0.02), [Color("ff5d73"), Color("ffe14d"), Color("5fd16a"), Color("9b6bff")][k], false)
 		# ---------- kytičky ----------
 		"masozravka":
 			_pot(n, Color("7ad1c4"))

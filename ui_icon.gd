@@ -29,6 +29,7 @@ func _gui_input(e: InputEvent) -> void:
 		elif _down.distance_to(e.global_position) < 18:
 			_press = 1.0
 			_down = Vector2(-999, -999)
+			Snd.play("tap", 0.15, -6.0)
 			tapped.emit()
 
 func _process(d: float) -> void:

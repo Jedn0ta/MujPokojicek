@@ -8,7 +8,7 @@ const CATS := [
 	["postele", "Postele"], ["sezeni", "Sezení"], ["stoly", "Stoly"], ["skrine", "Skříně"],
 	["svetla", "Světla"], ["koberce", "Koberce"], ["kytky", "Kytky"], ["dekorace", "Obrázky"],
 	["kuchyn", "Kuchyňka"], ["hracky", "Hračky"], ["zviratka", "Zvířátka"], ["dobroty", "Dobroty"],
-	["zdrave", "Ovoce a zelenina"], ["darky", "Dárky a hvězdičky"], ["pece", "Péče a návyky"],
+	["zdrave", "Ovoce a zelenina"], ["darky", "Dárky a hvězdičky"], ["pece", "Péče a návyky"], ["hudba", "Hudba"],
 ]
 const F := 0.5    # zmenšení nábytku
 const K := 0.42   # zmenšení kuchyňky
@@ -98,6 +98,16 @@ const RAW := [
 	["domecek", "hracky", "", 1.0, "play", 0.62, 0.4, {"tip": "Panenky mají vlastní domeček."}],
 	["panenka", "hracky", "", 1.0, "hug", 0.2, 0.15, {"cuddly": true}],
 	["zajicekplys", "hracky", "", 1.0, "hug", 0.2, 0.18, {"cuddly": true}],
+	["kufr", "hracky", "", 1.0, "open", 0.5, 0.34, {"tip": "Do kouzelného kufru se uklidí hračky. Uklizený pokojíček je hezký pokojíček."}],
+	["xylofon", "hudba", "", 1.0, "play", 0.4, 0.2, {}],
+	["bubinek", "hudba", "", 1.0, "play", 0.3, 0.3, {}],
+	["kytara", "hudba", "", 1.0, "play", 0.22, 0.12, {}],
+	["klavir", "hudba", "", 1.0, "play", 0.7, 0.36, {}],
+	["trumpetka", "hudba", "", 1.0, "play", 0.3, 0.12, {}],
+	["tamburina", "hudba", "", 1.0, "play", 0.24, 0.24, {}],
+	["panda", "hracky", "", 1.0, "hug", 0.26, 0.22, {"cuddly": true, "tip": "Pandy nejradši papají bambus."}],
+	["kapybara", "hracky", "", 1.0, "hug", 0.3, 0.22, {"cuddly": true, "tip": "Kapybara je největší hlodavec a kamarádí se se všemi."}],
+	["lenochod", "hracky", "", 1.0, "hug", 0.26, 0.22, {"cuddly": true, "tip": "Lenochod dělá všechno pomaličku."}],
 	["kocicka", "zviratka", "", 1.0, "pet", 0.25, 0.25, {"live": true, "cuddly": true, "tip": "Kočičku hladíme jemně."}],
 	["jesterka", "zviratka", "", 1.0, "look", 0.15, 0.2, {"live": true, "tip": "Ještěrka se ráda vyhřívá na sluníčku."}],
 	["pavouk", "zviratka", "", 1.0, "look", 0.15, 0.15, {"live": true, "tip": "Pavoučci chytají mušky do sítě."}],

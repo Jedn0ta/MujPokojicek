@@ -96,6 +96,13 @@ func _ready() -> void:
 		b.round_btn = true
 		b.tapped.connect(_set_tab.bind(t)); left.add_child(b); tabs[t] = b
 	var spacer := Control.new(); spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL; left.add_child(spacer)
+	Snd.music_on = bool(S.get("music", true))
+	var snd := Snd.new(); add_child(snd)
+	var mus := UIcon.new("music" if Snd.music_on else "mute", null, Color(0, 0, 0, 0), 72); mus.round_btn = true
+	mus.tapped.connect(func():
+		S["music"] = not Snd.music_on; Snd.set_music(S["music"]); Data.save_state(S)
+		mus.kind = "music" if Snd.music_on else "mute"; mus.queue_redraw())
+	left.add_child(mus)
 	upd_btn = UIcon.new("update", null, Color(0, 0, 0, 0), 80); upd_btn.round_btn = true
 	upd_btn.tapped.connect(_on_update_tap); left.add_child(upd_btn)
 	stage = Control.new(); stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL; stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -177,6 +184,9 @@ func _process(d: float) -> void:
 	if _pix_dirty > 0 and Time.get_ticks_msec() > _pix_dirty:
 		_pix_dirty = 0; Data.save_state(S); room.build(current_room(), sel if edit_mode else -1)
 	_bump_small_things()
+	if hold_cand >= 0 and touches.size() == 1 and not _moved and Time.get_ticks_msec() - _down_time > 450:
+		hold_item = hold_cand; hold_cand = -1; _moved = true; dragging = -1
+		Snd.play("pop"); _lift_held()
 	_heart_t += d
 	if _heart_t > 0.9 and tab != "hero" and not window_view:
 		_heart_t = 0.0
@@ -309,6 +319,8 @@ func _my_cmd(c: Dictionary) -> void:
 func _on_arrived(c: Dictionary, _id: int) -> void:
 	var items: Array = current_room()["items"]
 	var i := int(c.get("item", -1))
+	var iid: String = str(items[i][0]) if i >= 0 and i < items.size() else ""
+	Snd.play(Snd.for_item(iid, str(c.get("act", ""))))
 	match str(c.get("act", "")):
 		"kick":
 			if i >= 0 and i < items.size():
@@ -317,7 +329,10 @@ func _on_arrived(c: Dictionary, _id: int) -> void:
 		"lamp":
 			room.toggle_lamp(i)
 		"open":
-			room.open_gift(i)
+			if iid == "kufr" and _id == net.my_id() and not net.is_client:
+				chest_open = i; _build_tray()
+			else:
+				room.open_gift(i)
 		"feed":
 			room.feed(i)
 		"eat":
@@ -476,7 +491,28 @@ func _on_stage_input(e: InputEvent) -> void:
 		_p_move(0, e.position, e.relative)
 
 var win_drag := false
+var hold_cand := -1      # věc pod prstem, než se podrží
+var hold_item := -1      # věc, kterou dítě právě nese
+var chest_open := -1     # otevřený kouzelný kufr
+
+func _small(id: String) -> bool:
+	var e := Catalog.get_item(id)
+	return float(e["w"]) * float(e["d"]) < 0.2 and not e.has("lift")
+
+func _own_room() -> bool:
+	return tab == "room" and not net.is_client and not window_view
 var _win_off := Vector2.ZERO
+
+func _lift_held() -> void:
+	var n: Node3D = room.item_node(hold_item)
+	if n: n.position.y += 0.15
+
+func _chest_near(it: Array, skip: int) -> int:
+	var items: Array = S["room"]["items"]
+	for k in items.size():
+		if k != skip and str(items[k][0]) == "kufr" and Vector2(float(items[k][1]) - float(it[1]), float(items[k][2]) - float(it[2])).length() < 0.4:
+			return k
+	return -1
 
 func _wall_hit(p: Vector2):
 	var h = Plane(Vector3(0, 0, 1), -Room.HALF.y + 0.05).intersects_ray(cam.project_ray_origin(p), cam.project_ray_normal(p))
@@ -502,6 +538,10 @@ func _p_down(i: int, p: Vector2) -> void:
 				sculpting = true; _moved = true
 				dolls.get_child(0).sculpt_brush(hit, sculpt_tool, sculpt_size, sculpt_mirror)
 				return
+		hold_cand = -1
+		if _own_room():
+			var fh = _floor_hit(p)
+			if fh != null: hold_cand = _nearest_item(S["room"]["items"], fh)
 		if tab == "room" and edit_mode and not net.is_client and not window_view:
 			var wh = _wall_hit(p)
 			if wh != null and Room.win.grow(0.05).has_point(wh):
@@ -539,6 +579,16 @@ func _p_move(i: int, p: Vector2, rel: Vector2) -> void:
 		spin += rel.x * 0.012
 		for d in dolls.get_children(): d.rotation.y = spin
 		return
+	if hold_item >= 0:
+		var hit = _floor_hit(p)
+		if hit != null:
+			var it: Array = S["room"]["items"][hold_item]
+			it[1] = clampf(hit.x, -Room.HALF.x + 0.12, Room.HALF.x - 0.12)
+			it[2] = clampf(hit.z, -Room.HALF.y + 0.12, Room.HALF.y - 0.12)
+			while it.size() < 5: it.append(0.0)
+			it[4] = room.top_at(it[1], it[2], hold_item) if _small(str(it[0])) else 0.0
+			room.place(hold_item, it); _lift_held()
+		return
 	if win_drag:
 		var wh = _wall_hit(p)
 		if wh != null:
@@ -566,6 +616,20 @@ func _p_up(i: int, p: Vector2) -> void:
 		sculpting = false
 		S["hero"]["sculpt"] = dolls.get_child(0).hs.data()
 		Data.save_state(S); _refresh_stage()
+		return
+	hold_cand = -1
+	if hold_item >= 0:
+		var items: Array = S["room"]["items"]
+		var it: Array = items[hold_item]
+		var k := _chest_near(it, hold_item)
+		if k >= 0 and _small(str(it[0])) and str(it[0]) != "kufr":
+			var r: Dictionary = S["room"]
+			if not r.has("chest"): r["chest"] = []
+			r["chest"].append(str(it[0])); items.remove_at(hold_item)
+			Snd.play("trpyt"); room.burst(Vector3(float(items[k if k < hold_item else k - 1][1]), 0.4, float(items[k if k < hold_item else k - 1][2])))
+			sel = -1
+		hold_item = -1
+		Data.save_state(S); _refresh_stage(); paths.build(items); _build_tray()
 		return
 	if win_drag:
 		win_drag = false; Data.save_state(S); _refresh_stage()
@@ -633,6 +697,7 @@ func _new_round() -> void:
 	await get_tree().create_timer(2.2).timeout
 	if not window_view or wg.get("id") != my_id: return
 	wg["phase"] = "close"
+	Snd.play("sus")
 	var tw := create_tween(); tw.tween_property(frame, "curtain", 1.0, 0.7)
 	await tw.finished
 	if not window_view or wg.get("id") != my_id: return
@@ -643,6 +708,7 @@ func _new_round() -> void:
 			wg["pane"] = pi; break
 	await get_tree().create_timer(0.5).timeout
 	if not window_view or wg.get("id") != my_id: return
+	Snd.play("sus")
 	var tw2 := create_tween(); tw2.tween_property(frame, "curtain", 0.0, 0.7)
 	await tw2.finished
 	if wg.get("id") == my_id: wg["phase"] = "guess"
@@ -654,14 +720,14 @@ func _window_tap(p: Vector2) -> void:
 	if pane == wg["pane"]:
 		wg["phase"] = "win"
 		frame.highlight = pane
-		frame.celebrate(frame.pane_rect(pane).get_center())
+		frame.celebrate(frame.pane_rect(pane).get_center()); Snd.play("hura", 0.0)
 		S["stars"] = int(S.get("stars", 0)) + 1; Data.save_state(S)
 		_build_tray()
 		await get_tree().create_timer(1.6).timeout
 		_new_round()
 	else:
 		wg["tries"] += 1
-		frame.flash = pane; frame.flash_t = 0.8
+		frame.flash = pane; frame.flash_t = 0.8; Snd.play("bum")
 		if wg["tries"] >= 2:
 			wg["phase"] = "show"
 			frame.highlight = wg["pane"]
@@ -945,6 +1011,21 @@ func _build_tray() -> void:
 			_opt_row("tail", Data.OPT["tail"].size(), h)
 			_opt_row("wings", Data.OPT["wings"].size(), h)
 		"room":
+			var rr: Dictionary = S["room"]
+			if chest_open >= 0 and not net.is_client and chest_open < rr["items"].size() and str(rr["items"][chest_open][0]) == "kufr":
+				var hb := _flow()
+				_icon("back", func(): chest_open = -1; _build_tray(), 80, hb)
+				_icon("", func(): pass, 80, hb, Catalog.icon("kufr"))
+				_gap()
+				var cf := _flow()
+				var stored: Array = rr.get("chest", [])
+				for k in stored.size():
+					var sid: String = stored[k]
+					_icon("", func():
+						var ch: Array = rr["items"][chest_open]
+						rr["items"].append([sid, clampf(float(ch[1]) + randf_range(-0.4, 0.4), -3.2, 3.2), clampf(float(ch[2]) + 0.45, -1.9, 1.9), 0])
+						stored.remove_at(k); Snd.play("pop"); Data.save_state(S); _refresh_stage(); paths.build(rr["items"]); _build_tray(), 84, cf, Catalog.icon(sid))
+				_gap()
 			if net.is_client or not edit_mode:
 				var f := _flow()
 				_icon("window", func(): _my_cmd(Interact.window()), 110, f)

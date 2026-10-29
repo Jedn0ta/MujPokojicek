@@ -89,7 +89,7 @@ func place(i: int, it: Array) -> void:
 	if i >= _items.size(): return
 	var e := Catalog.get_item(str(it[0]))
 	var x := float(it[1]); var z := float(it[2]); var rot := float(it[3]) if it.size() > 3 else 0.0
-	var y := 0.0
+	var y := float(it[4]) if it.size() > 4 else 0.0
 	if e.has("lift"):
 		y = float(e["lift"])
 		if abs(z + HALF.y) < abs(x + HALF.x):
@@ -252,6 +252,25 @@ func push(i: int, dir: Vector3, items: Array) -> void:
 			items[i][1] = to.x; items[i][2] = to.z
 
 ## Hraní s kostkami: zase se postaví do komínku.
+## Nejvyšší plocha (stůl, skříňka, polička) pod bodem x, z. Jinak 0 = podlaha.
+func top_at(x: float, z: float, skip: int) -> float:
+	var best := 0.0
+	for i in _items.size():
+		if i == skip: continue
+		var aabb := AABB(); var first := true
+		for mi in _items[i].find_children("*", "MeshInstance3D", true, false):
+			var bb: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+			if first: aabb = bb; first = false
+			else: aabb = aabb.merge(bb)
+		if first: continue
+		var lo := aabb.position - global_position; var hi := aabb.end - global_position
+		if x > lo.x and x < hi.x and z > lo.z and z < hi.z and hi.y < 1.6 and hi.y > best:
+			best = hi.y
+	return best
+
+func item_node(i: int) -> Node3D:
+	return _items[i] if i >= 0 and i < _items.size() else null
+
 func restack(i: int) -> void:
 	if i >= _items.size(): return
 	for c in _items[i].get_children():
@@ -381,6 +400,46 @@ static func furniture(n: Node3D, id: String) -> void:
 				Yarn.ball(n, Vector3(0.035 * s, 0.28, 0.07), Vector3(0.02, 0.02, 0.02), Color("2a2230"), false)
 				Yarn.ball(n, Vector3(0.09 * s, 0.13, 0.02), Vector3(0.07, 0.11, 0.07), br)
 			Yarn.ball(n, Vector3(0, 0.245, 0.075), Vector3(0.06, 0.045, 0.04), Color("ead0b0"))
+		"panda":
+			var w := Color("fbfaf6"); var bk := Color("2f2a33")
+			Yarn.ball(n, Vector3(0, 0.11, 0), Vector3(0.22, 0.22, 0.2), w)
+			Yarn.ball(n, Vector3(0, 0.09, 0), Vector3(0.235, 0.09, 0.21), bk)
+			Yarn.ball(n, Vector3(0, 0.29, 0), Vector3(0.2, 0.18, 0.18), w)
+			for s in [-1, 1]:
+				Yarn.ball(n, Vector3(0.075 * s, 0.37, 0), Vector3(0.065, 0.065, 0.045), bk)
+				Yarn.ball(n, Vector3(0.045 * s, 0.3, 0.075), Vector3(0.05, 0.06, 0.03), bk, true, Vector3(0, 0, 0.5 * s))
+				Yarn.ball(n, Vector3(0.045 * s, 0.305, 0.09), Vector3(0.018, 0.018, 0.015), Color.WHITE, false)
+				Yarn.ball(n, Vector3(0.1 * s, 0.14, 0.03), Vector3(0.07, 0.12, 0.07), bk)
+				Yarn.ball(n, Vector3(0.06 * s, 0.02, 0.07), Vector3(0.07, 0.05, 0.08), bk)
+				Yarn.ball(n, Vector3(0.075 * s, 0.26, 0.085), Vector3(0.025, 0.015, 0.01), Color("ffb3c6"), false)
+			Yarn.ball(n, Vector3(0, 0.27, 0.09), Vector3(0.03, 0.02, 0.02), bk, false)
+			Yarn.cyl(n, Vector3(0.12, 0.17, 0.04), 0.012, 0.012, 0.28, Color("8fd16a"), false, Vector3(0.3, 0, 0.4))
+		"kapybara":
+			var br := Color("b88a5c")
+			Yarn.ball(n, Vector3(0, 0.12, 0), Vector3(0.26, 0.2, 0.32), br)
+			Yarn.ball(n, Vector3(0, 0.22, 0.13), Vector3(0.18, 0.17, 0.2), br)
+			Yarn.ball(n, Vector3(0, 0.2, 0.22), Vector3(0.14, 0.11, 0.1), br.darkened(0.12))
+			for s in [-1, 1]:
+				Yarn.ball(n, Vector3(0.065 * s, 0.31, 0.1), Vector3(0.035, 0.03, 0.03), br.darkened(0.2))
+				Yarn.ball(n, Vector3(0.05 * s, 0.26, 0.21), Vector3(0.02, 0.02, 0.015), Color("2a2230"), false)
+				Yarn.ball(n, Vector3(0.025 * s, 0.21, 0.27), Vector3(0.012, 0.01, 0.008), Color("2a2230"), false)
+				for z in [-0.08, 0.08]: Yarn.ball(n, Vector3(0.08 * s, 0.03, z), Vector3(0.06, 0.06, 0.06), br.darkened(0.1))
+			# na hlavě sedí mandarinka
+			Yarn.ball(n, Vector3(0, 0.34, 0.13), Vector3(0.07, 0.06, 0.07), Color("ff9a1a"))
+			Yarn.ball(n, Vector3(0.01, 0.375, 0.13), Vector3(0.03, 0.01, 0.02), Color("4fa860"), false)
+		"lenochod":
+			var fur := Color("a8906e"); var fc := Color("efe0c4")
+			Yarn.ball(n, Vector3(0, 0.12, 0), Vector3(0.2, 0.22, 0.17), fur)
+			Yarn.ball(n, Vector3(0, 0.3, 0.01), Vector3(0.19, 0.17, 0.17), fur)
+			Yarn.ball(n, Vector3(0, 0.29, 0.06), Vector3(0.15, 0.12, 0.1), fc)
+			for s in [-1, 1]:
+				Yarn.ball(n, Vector3(0.04 * s, 0.3, 0.1), Vector3(0.055, 0.03, 0.02), Color("6a4e36"), false, Vector3(0, 0, -0.35 * s))
+				Yarn.ball(n, Vector3(0.042 * s, 0.3, 0.113), Vector3(0.016, 0.016, 0.01), Color("231c2a"), false)
+				# dlouhé ručičky objímají bříško
+				Yarn.cyl(n, Vector3(0.08 * s, 0.16, 0.07), 0.03, 0.035, 0.2, fur, true, Vector3(1.2, 0, 0.6 * s))
+				Yarn.ball(n, Vector3(0.06 * s, 0.03, 0.06), Vector3(0.06, 0.05, 0.08), fur)
+			Yarn.ball(n, Vector3(0, 0.275, 0.115), Vector3(0.025, 0.018, 0.015), Color("4a3a2e"), false)
+			Yarn.ball(n, Vector3(0, 0.25, 0.11), Vector3(0.04, 0.012, 0.01), Color("c87a6a"), false)
 		"mic":
 			Yarn.ball(n, Vector3(0, 0.09, 0), Vector3(0.18, 0.18, 0.18), Color("ff7a59"))
 			Yarn.cyl(n, Vector3(0, 0.09, 0), 0.092, 0.092, 0.03, Color("ffc93c"))
