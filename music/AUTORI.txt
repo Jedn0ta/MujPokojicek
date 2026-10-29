@@ -1,0 +1,15 @@
+Hudba v aplikaci (všechny skladby pod licencí CC0 – volné dílo, lze použít bez omezení):
+hudba1 – HoliznaCC0: Sunny Afternoon
+hudba2 – Komiku: Merfolk Music Box
+hudba3 – HoliznaCC0: Kids
+hudba4 – Loyalty Freak Music: Sweet Sun
+hudba5 – HoliznaCC0: Happy Dance
+hudba6 – Komiku: Childhood scene
+hudba7 – HoliznaCC0: ChildHood
+hudba8 – Loyalty Freak Music: Go to the Picnic
+hudba9 – John Bartmann: Happy Clappy
+Zdroj: Free Music Archive přes archiv github.com/SoundSafari/CC0-1.0-Music
+
+Zvuky: Kenney Interface Sounds (CC0, kenney.nl) a nahrávky z freesound.org v témže CC0 archivu
+(xylofon, ukulele, kazoo, klavír, bubny, rolnička, zvonkohra, harfa, voda, pískací hračka, hrací strojek).
+Mňoukání, cvrlikání, vrčení dinosaura, autíčko, chichotání a křupání jsou zatím syntetické.

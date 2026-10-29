@@ -12,23 +12,37 @@ var _cache := {}
 func _ready() -> void:
 	inst = self
 	_music = AudioStreamPlayer.new(); add_child(_music)
-	var s: AudioStreamWAV = load("res://sounds/hudba.wav")
-	s.loop_mode = AudioStreamWAV.LOOP_FORWARD; s.loop_begin = 0; s.loop_end = s.data.size() / 2
-	_music.stream = s; _music.volume_db = -9.0
+	_music.volume_db = -8.0
+	_music.finished.connect(_next_song)
 	for k in 6:
 		var p := AudioStreamPlayer.new(); add_child(p); _pool.append(p)
-	if music_on: _music.play()
+	if music_on: _next_song()
+
+const SONGS := 9
+var _song := -1
+
+## Další písnička (náhodně, ale nikdy stejná dvakrát po sobě).
+func _next_song() -> void:
+	if not music_on: return
+	var k := randi() % SONGS
+	if k == _song: k = (k + 1) % SONGS
+	_song = k
+	var st = load("res://music/hudba%d.ogg" % (k + 1))
+	if st == null: return
+	st.loop = false
+	_music.stream = st; _music.play()
 
 static func set_music(on: bool) -> void:
 	music_on = on
 	if inst == null: return
-	if on and not inst._music.playing: inst._music.play()
+	if on: inst._next_song()
 	if not on: inst._music.stop()
 
 static func play(name: String, pitch_rand := 0.08, vol := 0.0) -> void:
 	if inst == null or not sfx_on or name == "": return
 	if not inst._cache.has(name):
-		var path := "res://sounds/%s.wav" % name
+		var path := "res://sounds/%s.ogg" % name
+		if not ResourceLoader.exists(path): path = "res://sounds/%s.wav" % name
 		inst._cache[name] = load(path) if ResourceLoader.exists(path) else null
 	if inst._cache[name] == null: return
 	for p in inst._pool:
