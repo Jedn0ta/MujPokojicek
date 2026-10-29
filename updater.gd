@@ -7,7 +7,7 @@ signal status(kind: String, text: String)   # kind: checking, downloading, done,
 
 const REPO := "Jedn0ta/MujPokojicek"
 const BRANCH := "main"
-const CONTENT := 6   # číslo obsahu v téhle verzi; zvyšuje se s každou aktualizací
+const CONTENT := 7   # číslo obsahu v téhle verzi; zvyšuje se s každou aktualizací
 
 var base := ""   # jen pro zkoušku; prázdné = GitHub
 var _http: HTTPRequest

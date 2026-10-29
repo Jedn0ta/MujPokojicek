@@ -12,7 +12,7 @@ var _cache := {}
 func _ready() -> void:
 	inst = self
 	_music = AudioStreamPlayer.new(); add_child(_music)
-	_music.volume_db = -8.0
+	_music.volume_db = _db(music_vol) - 6.0
 	_music.finished.connect(_next_song)
 	for k in 6:
 		var p := AudioStreamPlayer.new(); add_child(p); _pool.append(p)
@@ -32,6 +32,16 @@ func _next_song() -> void:
 	st.loop = false
 	_music.stream = st; _music.play()
 
+static var music_vol := 0.7
+static var sfx_vol := 0.9
+
+static func _db(v: float) -> float:
+	return -80.0 if v <= 0.01 else linear_to_db(v)
+
+static func set_volumes(mv: float, sv: float) -> void:
+	music_vol = mv; sfx_vol = sv
+	if inst: inst._music.volume_db = _db(mv) - 6.0
+
 static func set_music(on: bool) -> void:
 	music_on = on
 	if inst == null: return
@@ -47,7 +57,7 @@ static func play(name: String, pitch_rand := 0.08, vol := 0.0) -> void:
 	if inst._cache[name] == null: return
 	for p in inst._pool:
 		if not p.playing:
-			p.stream = inst._cache[name]; p.volume_db = vol
+			p.stream = inst._cache[name]; p.volume_db = vol + _db(sfx_vol)
 			p.pitch_scale = 1.0 + randf_range(-pitch_rand, pitch_rand); p.play(); return
 
 ## Zvuk pro věc, se kterou si panenka hraje (jen u věcí, které zvuk opravdu vydávají).

@@ -76,6 +76,9 @@ var head_region := "brada"   # čumáček, oči a pusa se vybírají zvlášť z
 
 var updater: Node
 var upd_btn: Control
+var upd_label: Label
+var gear_btn: Control
+var settings_open := false
 var tray_scroll: ScrollContainer
 var overlay: PanelContainer
 var game_info: Label
@@ -98,13 +101,13 @@ func _ready() -> void:
 	var spacer := Control.new(); spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL; left.add_child(spacer)
 	Snd.music_on = bool(S.get("music", true))
 	var snd := Snd.new(); add_child(snd)
-	var mus := UIcon.new("music" if Snd.music_on else "mute", null, Color(0, 0, 0, 0), 72); mus.round_btn = true
-	mus.tapped.connect(func():
-		S["music"] = not Snd.music_on; Snd.set_music(S["music"]); Data.save_state(S)
-		mus.kind = "music" if Snd.music_on else "mute"; mus.queue_redraw())
-	left.add_child(mus)
-	upd_btn = UIcon.new("update", null, Color(0, 0, 0, 0), 80); upd_btn.round_btn = true
-	upd_btn.tapped.connect(_on_update_tap); left.add_child(upd_btn)
+	Snd.sfx_on = bool(S.get("sfx", true)); Snd.set_volumes(float(S.get("mvol", 0.7)), float(S.get("svol", 0.9)))
+	gear_btn = UIcon.new("settings", null, Color(0, 0, 0, 0), 80); gear_btn.round_btn = true
+	gear_btn.tapped.connect(func():
+		settings_open = not settings_open; gear_btn.selected = settings_open; gear_btn.queue_redraw()
+		if settings_open and window_view: _leave_window(false); _refresh_stage()
+		_build_tray())
+	left.add_child(gear_btn)
 	stage = Control.new(); stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL; stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stage.clip_contents = true
 	row.add_child(stage)
@@ -214,6 +217,8 @@ func _on_update_tap() -> void:
 
 func _on_update_status(kind: String, text: String) -> void:
 	_upd_state = kind
+	_upd_text()
+	if not is_instance_valid(upd_btn): return
 	upd_btn.progress = -1.0
 	upd_btn.selected = false
 	match kind:
@@ -225,7 +230,7 @@ func _on_update_status(kind: String, text: String) -> void:
 	upd_btn.queue_redraw()
 
 func _update_progress() -> void:
-	if _upd_state == "downloading":
+	if _upd_state == "downloading" and is_instance_valid(upd_btn):
 		upd_btn.progress = max(0.02, updater.progress()); upd_btn.queue_redraw()
 
 # ---------- kamera ----------
@@ -422,6 +427,8 @@ func _toast(t: String) -> void:
 
 func _set_tab(t: String) -> void:
 	tab = t
+	settings_open = false
+	if gear_btn: gear_btn.selected = false; gear_btn.queue_redraw()
 	_cam_defaults(); _snap_camera()
 	for k in tabs:
 		tabs[k].selected = k == t; tabs[k].queue_redraw()
@@ -938,8 +945,48 @@ func _opt_tex(key: String, i: int) -> Texture2D:
 	var p := "res://icons/opt_%s_%d.png" % [key, i]
 	return load(p) if ResourceLoader.exists(p) else null
 
+func _upd_text() -> void:
+	if not is_instance_valid(upd_label): return
+	upd_label.text = {"checking": "Hledám novou verzi…", "downloading": "Stahuji novou verzi…",
+		"done": "Hotovo! Ťukni znovu a hra se spustí v nové verzi.", "latest": "Máš nejnovější verzi.",
+		"apk": "Je potřeba nová instalace – ťukni a stáhne se.", "error": "Nepovedlo se připojit. Je zapnutý internet?"}.get(_upd_state, "Ťukni na mráček a hra se aktualizuje.")
+
+func _set_row(kind_on: String, kind_off: String, title: String, on: bool, vol: float, toggle: Callable, setvol: Callable) -> void:
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 12); tray.add_child(row)
+	var b := UIcon.new(kind_on if on else kind_off, null, Color(0, 0, 0, 0), 76); row.add_child(b)
+	b.tapped.connect(func():
+		var now: bool = toggle.call(); b.kind = kind_on if now else kind_off; b.queue_redraw())
+	var col := VBoxContainer.new(); col.size_flags_horizontal = Control.SIZE_EXPAND_FILL; row.add_child(col)
+	var l := Label.new(); l.text = title; l.add_theme_font_size_override("font_size", 24); col.add_child(l)
+	var sl := HSlider.new(); sl.min_value = 0; sl.max_value = 1; sl.step = 0.05; sl.value = vol
+	sl.custom_minimum_size = Vector2(0, 40); sl.value_changed.connect(setvol); col.add_child(sl)
+
+func _settings_tray() -> void:
+	var t := _label("Nastavení"); t.add_theme_font_size_override("font_size", 34)
+	_set_row("music", "mute", "Hudba", Snd.music_on, float(S.get("mvol", 0.7)),
+		func(): S["music"] = not Snd.music_on; Snd.set_music(S["music"]); Data.save_state(S); return Snd.music_on,
+		func(v: float): S["mvol"] = v; Snd.set_volumes(v, float(S.get("svol", 0.9))); Data.save_state(S))
+	_set_row("sound", "nosound", "Zvuky", Snd.sfx_on, float(S.get("svol", 0.9)),
+		func(): Snd.sfx_on = not Snd.sfx_on; S["sfx"] = Snd.sfx_on; Data.save_state(S); return Snd.sfx_on,
+		func(v: float): S["svol"] = v; Snd.set_volumes(float(S.get("mvol", 0.7)), v); Data.save_state(S); Snd.play("pop", 0.0))
+	_gap()
+	var a := _label("O aplikaci"); a.add_theme_font_size_override("font_size", 30)
+	_label("Můj Pokojíček\nverze %s · obsah %d" % ["0.7", updater.CONTENT], true)
+	var urow := HBoxContainer.new(); urow.add_theme_constant_override("separation", 12); tray.add_child(urow)
+	upd_btn = UIcon.new("update", null, Color(0, 0, 0, 0), 84); upd_btn.round_btn = true
+	upd_btn.tapped.connect(_on_update_tap); urow.add_child(upd_btn)
+	upd_label = Label.new(); upd_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	upd_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL; upd_label.add_theme_font_size_override("font_size", 22); urow.add_child(upd_label)
+	if _upd_state != "": _on_update_status(_upd_state, _apk_url)
+	else: _upd_text()
+	_gap()
+	_label("Pro rodiče: hra funguje bez internetu, kamarádi se připojují přes stejnou wifi. Žádné reklamy ani nákupy.", true)
+	_label("Poděkování: 3D modely KayKit (CC0), hudba HoliznaCC0, Komiku, Loyalty Freak Music a John Bartmann (CC0), zvuky Kenney a freesound.org (CC0).", true)
+
 func _build_tray() -> void:
 	_clear()
+	if settings_open:
+		_settings_tray(); return
 	if window_view and tab != "hero":
 		var top := HBoxContainer.new(); tray.add_child(top)
 		_icon("back", func(): _leave_window(); _refresh_stage(); _build_tray(), 96, top)
