@@ -1,8 +1,8 @@
 extends Node3D
-## 3D pokojíček: podlaha x -2.5..2.5, z -2..2, zadní a levá stěna, okno se záclonkami.
+## 3D pokojíček: podlaha x -3.35..3.35, z -2..2, zadní a levá stěna, okno se záclonkami.
 ## Věci se berou z katalogu (catalog.gd).
 
-const HALF := Vector2(2.5, 2.0)
+const HALF := Vector2(3.35, 2.0)
 const WINDOW := Rect2(-0.35, 0.8, 1.1, 0.8)   # na zadní stěně: x, y, šířka, výška
 
 var _items: Array = []
@@ -18,7 +18,14 @@ func build(r: Dictionary, sel: int) -> void:
 	floor.mesh = fb; floor.position.y = -0.05
 	floor.material_override = pattern_mat(Data.pick(Data.FLOOR, r.get("floor", 0)), int(r.get("floorp", 0)), true)
 	add_child(floor)
-	var wm := pattern_mat(Data.pick(Data.WALL, r.get("wall", 0)), int(r.get("wallp", 0)), false)
+	var wm: StandardMaterial3D
+	if int(r.get("wallp", 0)) == 4:
+		wm = StandardMaterial3D.new(); wm.roughness = 0.9
+		wm.albedo_texture = preload("res://pixel_editor.gd").make_texture(r.get("pix", []), Data.pick(Data.WALL, r.get("wall", 0)))
+		wm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		wm.uv1_triplanar = true; wm.uv1_scale = Vector3(1.6, 1.6, 1.6)
+	else:
+		wm = pattern_mat(Data.pick(Data.WALL, r.get("wall", 0)), int(r.get("wallp", 0)), false)
 	for w in [[Vector3(0, 1.1, -HALF.y - 0.05), Vector3(HALF.x * 2 + 0.2, 2.2, 0.1)], [Vector3(-HALF.x - 0.05, 1.1, 0), Vector3(0.1, 2.2, HALF.y * 2 + 0.1)]]:
 		var mi := MeshInstance3D.new(); var b := BoxMesh.new(); b.size = w[1]
 		mi.mesh = b; mi.position = w[0]; mi.material_override = wm; add_child(mi)
@@ -33,7 +40,7 @@ func build(r: Dictionary, sel: int) -> void:
 	Yarn.box(self, wc + Vector3(0, 0, 0.045), Vector3(WINDOW.size.x, 0.04, 0.02), Color.WHITE)
 	Yarn.box(self, wc + Vector3(0, -WINDOW.size.y / 2 - 0.06, 0.07), Vector3(WINDOW.size.x + 0.2, 0.04, 0.12), Color.WHITE)
 	for s in [-1, 1]:
-		Yarn.box(self, wc + Vector3(s * (WINDOW.size.x / 2 + 0.06), 0.05, 0.08), Vector3(0.2, WINDOW.size.y + 0.25, 0.04), Data.PINK)
+		Yarn.box(self, wc + Vector3(s * (WINDOW.size.x / 2 + 0.06), 0.05, 0.08), Vector3(0.2, WINDOW.size.y + 0.25, 0.04), Data.pick(Data.YARN, r.get("curt", 0)))
 	Yarn.box(self, wc + Vector3(0, WINDOW.size.y / 2 + 0.16, 0.09), Vector3(WINDOW.size.x + 0.5, 0.03, 0.03), Color("b5784a"))
 	var items: Array = r.get("items", [])
 	for i in items.size():
@@ -123,6 +130,28 @@ func _process(d: float) -> void:
 			"sway":
 				node.rotation.z = sin(_t * 1.2 + ph) * 0.06
 				node.rotation.x = cos(_t + ph) * 0.04
+			"wander":
+				# pobíhá po pokoji kolem svého místa, občas se zastaví
+				var home: Vector3 = node.get_parent().position
+				if not m.has("to") or node.position.distance_to(m["to"]) < 0.04:
+					if m.get("pause", false) and randf() < 0.5:
+						m["wait"] = _t + randf_range(0.8, 2.5)
+					var tgt := Vector3(randf_range(-1.4, 1.4), 0, randf_range(-1.0, 1.0))
+					var gl := home + tgt
+					gl.x = clampf(gl.x, -HALF.x + 0.25, HALF.x - 0.25); gl.z = clampf(gl.z, -HALF.y + 0.25, HALF.y - 0.25)
+					m["to"] = gl - home
+				if _t < float(m.get("wait", 0.0)): continue
+				var dv: Vector3 = (m["to"] as Vector3) - node.position
+				var step := float(m["sp"]) * get_process_delta_time()
+				node.position += dv.normalized() * min(step, dv.length())
+				node.rotation.y = lerp_angle(node.rotation.y, atan2(dv.x, dv.z), 0.15)
+				node.position.y = abs(sin(_t * 18.0)) * 0.006
+			"fly":
+				var fa := _t * 0.7 + ph
+				node.position = Vector3(sin(fa) * 0.8, 0.75 + sin(fa * 2.3) * 0.25, sin(fa * 2.0) * 0.45)
+				node.rotation.y = atan2(cos(fa) * 0.8, cos(fa * 2.0) * 0.9)
+			"flap":
+				node.rotation.z = sin(_t * 22.0) * 0.9 * float(m["s"])
 			"flame":
 				var s0: Vector3 = a[3]
 				node.scale = Vector3(s0.x, s0.y * (1 + 0.25 * sin(_t * 15.0 + base.x * 50.0)), s0.z)
@@ -224,6 +253,34 @@ func _clamp(v: Vector3) -> Vector3:
 
 func node_pos(i: int) -> Vector3:
 	return _items[i].position if i < _items.size() else Vector3(99, 0, 99)
+
+## Kde je teď živé zvířátko (pobíhá mimo své místo).
+func live_pos(i: int) -> Vector3:
+	if i >= _items.size(): return Vector3(99, 0, 99)
+	for a in _anims:
+		if a[1]["k"] in ["wander", "fly"] and is_instance_valid(a[0]) and a[0].get_parent() == _items[i]:
+			var g: Vector3 = a[0].global_position
+			return Vector3(g.x, 0, g.z)
+	return _items[i].position
+
+## Srdíčka, která stoupají nad panenkou při mazlení.
+func hearts(at: Vector3) -> void:
+	for k in 3:
+		var h := Node3D.new(); add_child(h)
+		h.position = at + Vector3(randf_range(-0.12, 0.12), 0, randf_range(-0.05, 0.05))
+		var col: Color = [Color("ff5d8f"), Color("ff8ab3"), Color("ff3b6b")][k]
+		var mat := Props.glow(col)
+		for s in [-1, 1]:
+			var b := Yarn.ball(h, Vector3(0.022 * s, 0.0, 0), Vector3(0.05, 0.05, 0.03), col, false); b.material_override = mat
+		var tip := Yarn.cyl(h, Vector3(0, -0.028, 0), 0.0, 0.045, 0.05, col, false, Vector3(PI, 0, 0)); tip.material_override = mat
+		tip.scale = Vector3(1, 1, 0.35)
+		h.scale = Vector3.ONE * 0.01
+		var tw := create_tween()
+		tw.tween_interval(k * 0.25)
+		tw.tween_property(h, "scale", Vector3.ONE * 1.2, 0.25).set_trans(Tween.TRANS_BACK)
+		tw.parallel().tween_property(h, "position:y", h.position.y + 0.55, 1.6)
+		tw.tween_property(h, "scale", Vector3.ONE * 0.01, 0.3)
+		tw.tween_callback(h.queue_free)
 
 func bubbles(at: Vector3) -> void:
 	burst(at, [Color.WHITE, Color("e8f6ff")])

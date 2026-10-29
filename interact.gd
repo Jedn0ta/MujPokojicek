@@ -10,7 +10,12 @@ static func _taken(people: Dictionary, me: int, i: int, seat: int) -> bool:
 			return true
 	return false
 
-static func at(items: Array, i: int, people: Dictionary, me: int) -> Dictionary:
+## Věci, se kterými si panenka hraje nebo je používá: dojde k nim zezadu,
+## aby byla obličejem ke kameře (dítě vidí, co dělá).
+const FROM_BEHIND := ["play", "eat", "hug", "lamp", "read", "feed", "cook", "smell", "open", "wish", "look",
+	"brush", "wash", "dry", "comb", "drink", "tidy", "draw", "alarm", "kick", "pet"]
+
+static func at(items: Array, i: int, people: Dictionary, me: int, cam := Vector3(0, 3, 8)) -> Dictionary:
 	var it: Array = items[i]
 	var e := Catalog.get_item(str(it[0]))
 	var p := Vector3(float(it[1]), 0, float(it[2]))
@@ -18,6 +23,14 @@ static func at(items: Array, i: int, people: Dictionary, me: int) -> Dictionary:
 	var b := Basis(Vector3.UP, ry)
 	var front := p + b * Vector3(0, 0, float(e["d"]) / 2.0 + 0.22)   # místo před věcí
 	var c := {"item": i, "act": e["act"], "ax": front.x, "az": front.z, "px": front.x, "pz": front.z, "ry": ry + PI}
+	if str(e["act"]) in FROM_BEHIND and not e.has("lift"):
+		var away := Vector3(p.x - cam.x, 0, p.z - cam.z).normalized()
+		var reach: float = max(float(e["w"]), float(e["d"])) / 2.0 + 0.2
+		var spot := p + away * reach
+		var lim := Vector2(Room_half().x - 0.18, Room_half().y - 0.18)
+		if abs(spot.x) < lim.x and abs(spot.z) < lim.y:
+			var face := -away
+			c.merge({"ax": spot.x, "az": spot.z, "px": spot.x, "pz": spot.z, "ry": atan2(face.x, face.z)}, true)
 	match str(e["act"]):
 		"game":
 			var k := 1 if _taken(people, me, i, 0) else 0
@@ -50,9 +63,12 @@ static func at(items: Array, i: int, people: Dictionary, me: int) -> Dictionary:
 				var near := p + b * Vector3(0, 0, 0.25)
 				c.merge({"ax": near.x, "az": near.z, "px": near.x, "pz": near.z}, true)
 		"kick":
-			var to := Vector3(clampf(p.x + randf_range(-1.2, 1.2), -2.3, 2.3), 0, clampf(p.z - randf_range(0.6, 1.2), -1.8, 1.8))
+			var to := Vector3(clampf(p.x + randf_range(-1.2, 1.2), -Room_half().x + 0.2, Room_half().x - 0.2), 0, clampf(p.z + randf_range(0.6, 1.2), -1.8, 1.8))
 			c.merge({"bx": to.x, "bz": to.z}, true)
 	return c
+
+static func Room_half() -> Vector2:
+	return Vector2(3.35, 2.0)
 
 static func walk(x: float, z: float) -> Dictionary:
 	return {"act": "idle", "ax": x, "az": z, "px": x, "pz": z}

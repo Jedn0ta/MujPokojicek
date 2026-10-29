@@ -10,20 +10,26 @@ var col := Color(0, 0, 0, 0)
 var selected := false
 var round_btn := false
 var text := ""
+var progress := -1.0   # kroužek průběhu (aktualizace)
+var bare := false      # jen kresba bez rámečku (pro výrobu obrázků)
+static var _pics := {}
+var _down := Vector2(-999, -999)
 var tint := Color.WHITE
 var _press := 0.0
 
 func _init(k := "", t: Texture2D = null, c := Color(0, 0, 0, 0), sz := 96.0) -> void:
 	kind = k; tex = t; col = c
 	custom_minimum_size = Vector2(sz, sz)
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_filter = Control.MOUSE_FILTER_PASS
 
 func _gui_input(e: InputEvent) -> void:
-	var down: bool = (e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT) or (e is InputEventScreenTouch and e.pressed)
-	if down:
-		_press = 1.0
-		tapped.emit()
-		accept_event()
+	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+		if e.pressed:
+			_down = e.global_position
+		elif _down.distance_to(e.global_position) < 18:
+			_press = 1.0
+			_down = Vector2(-999, -999)
+			tapped.emit()
 
 func _process(d: float) -> void:
 	if _press > 0.0:
@@ -41,16 +47,30 @@ func _draw() -> void:
 	sb.border_color = Data.PINK if selected else Data.LILAC
 	sb.set_border_width_all(7 if selected else 4)
 	sb.shadow_color = Color(0.4, 0.3, 0.6, 0.18); sb.shadow_size = 5; sb.shadow_offset = Vector2(0, 4)
-	draw_style_box(sb, r)
+	if not bare: draw_style_box(sb, r)
+	var pic := _pic(kind) if not bare else null
 	if tex:
 		var m := s.x * 0.08
 		draw_texture_rect(tex, Rect2(Vector2(m, m), s - Vector2(m, m) * 2), false)
+	elif pic:
+		var m2 := s.x * 0.06
+		draw_texture_rect(pic, Rect2(Vector2(m2, m2), s - Vector2(m2, m2) * 2), false)
 	elif kind != "":
 		_icon(kind, s / 2.0, s.x * 0.32)
-	elif text != "":
+	if progress >= 0.0:
+		draw_arc(s / 2.0, s.x * 0.44, -PI / 2, -PI / 2 + TAU * progress, 40, Data.MINT, 7)
+	if tex == null and kind == "" and text != "":
 		var f := get_theme_default_font(); var fs := int(s.y * 0.4)
 		draw_string(f, Vector2(0, s.y / 2 + fs * 0.35), text, HORIZONTAL_ALIGNMENT_CENTER, s.x, fs, Data.INK)
 	draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+
+## Propracovaná ikona (obrázek s obrysem a odleskem), když existuje.
+static func _pic(k: String) -> Texture2D:
+	if k == "": return null
+	if not _pics.has(k):
+		var p := "res://icons/ui_%s.png" % k
+		_pics[k] = load(p) if ResourceLoader.exists(p) else null
+	return _pics[k]
 
 func _icon(k: String, c: Vector2, R: float) -> void:
 	var ink := Data.INK
@@ -123,6 +143,20 @@ func _icon(k: String, c: Vector2, R: float) -> void:
 			for i in n:
 				var p := c + Vector2((i - (n - 1) / 2.0) * R * 0.55, 0)
 				_star(p, R * 0.32, yel)
+		"few1", "few2", "few3", "few4":
+			# kolik věcí bude za oknem: 2, 4, 6, 9 domečků a stromků
+			var cnt: int = [2, 4, 6, 9][int(k.substr(3)) - 1]
+			var cols := 3 if cnt > 4 else 2
+			var rows := int(ceil(cnt / float(cols)))
+			var cell: float = R * 1.6 / max(cols, rows)
+			for i in cnt:
+				var p := c + Vector2((i % cols - (cols - 1) / 2.0) * cell, (i / cols - (rows - 1) / 2.0) * cell)
+				if i % 2 == 0:
+					draw_colored_polygon(PackedVector2Array([p + Vector2(-cell * 0.42, -cell * 0.02), p + Vector2(0, -cell * 0.42), p + Vector2(cell * 0.42, -cell * 0.02)]), Color("ff7a6e"))
+					draw_rect(Rect2(p + Vector2(-cell * 0.32, -cell * 0.04), Vector2(cell * 0.64, cell * 0.42)), Color("ffe1b0"))
+				else:
+					draw_rect(Rect2(p + Vector2(-cell * 0.06, cell * 0.05), Vector2(cell * 0.12, cell * 0.32)), Color("8a5a35"))
+					draw_circle(p + Vector2(0, -cell * 0.06), cell * 0.3, Color("57b85e"))
 		"window":
 			draw_rect(Rect2(c - Vector2(R, R) * 0.8, Vector2(R, R) * 1.6), Color("a8dcff"))
 			draw_rect(Rect2(c - Vector2(R * 0.06, R * 0.8), Vector2(R * 0.12, R * 1.6)), Color.WHITE)
@@ -219,6 +253,11 @@ func _icon(k: String, c: Vector2, R: float) -> void:
 		"check":
 			draw_circle(c, R * 0.9, mint)
 			draw_polyline(PackedVector2Array([c + Vector2(-R * 0.45, 0), c + Vector2(-R * 0.1, R * 0.35), c + Vector2(R * 0.5, -R * 0.35)]), Color.WHITE, R * 0.22)
+		"fill":
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-R * 0.6, -R * 0.1), c + Vector2(0, -R * 0.7), c + Vector2(R * 0.55, -R * 0.15), c + Vector2(-R * 0.05, R * 0.45)]), Color("cdd6e0"))
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-R * 0.6, -R * 0.1), c + Vector2(-R * 0.05, R * 0.45), c + Vector2(-R * 0.35, R * 0.2)]), Color("6fa8ff"))
+			draw_circle(c + Vector2(R * 0.6, R * 0.45), R * 0.2, Color("6fa8ff"))
+			draw_colored_polygon(PackedVector2Array([c + Vector2(R * 0.45, R * 0.4), c + Vector2(R * 0.6, R * 0.05), c + Vector2(R * 0.75, R * 0.4)]), Color("6fa8ff"))
 		"wifi":
 			for i in 3: draw_arc(c + Vector2(0, R * 0.6), R * (0.4 + i * 0.4), PI * 1.25, PI * 1.75, 12, Color("6fa8ff"), R * 0.15)
 			draw_circle(c + Vector2(0, R * 0.6), R * 0.14, Color("6fa8ff"))

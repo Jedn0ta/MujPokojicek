@@ -276,6 +276,97 @@ static func build(n: Node3D, id: String) -> bool:
 				Yarn.ball(n, Vector3(0.055 * s, 0.2, 0), Vector3(0.14, 0.14, 0.09), Color("ff5d73"))
 			var bx := Yarn.box(n, Vector3(0, 0.135, 0), Vector3(0.14, 0.14, 0.085), Color("ff5d73"), true)
 			bx.rotation.z = PI / 4
+		# ---------- nové hračky ----------
+		"dino1":
+			var g := Color("6fcf6a")
+			Yarn.ball(n, Vector3(0, 0.16, 0), Vector3(0.2, 0.18, 0.3), g)
+			Yarn.ball(n, Vector3(0, 0.3, 0.12), Vector3(0.15, 0.14, 0.18), g)
+			Yarn.ball(n, Vector3(0, 0.27, 0.2), Vector3(0.11, 0.07, 0.1), g.lightened(0.15))
+			for s in [-1, 1]:
+				Yarn.ball(n, Vector3(0.04 * s, 0.33, 0.17), Vector3(0.03, 0.035, 0.02), Color("231c2a"), false)
+				Yarn.ball(n, Vector3(0.07 * s, 0.06, 0.02), Vector3(0.07, 0.12, 0.08), g.darkened(0.1))
+				Yarn.ball(n, Vector3(0.08 * s, 0.17, 0.13), Vector3(0.025, 0.05, 0.025), g.darkened(0.1), true, Vector3(0.6, 0, 0))
+			Yarn.cyl(n, Vector3(0, 0.13, -0.2), 0.0, 0.07, 0.24, g, true, Vector3(-1.9, 0, 0))
+			for k in 4: Yarn.cyl(n, Vector3(0, 0.26 - k * 0.025, 0.05 - k * 0.08), 0.0, 0.025, 0.05, Color("ffc93c"), false)
+		"dino2":
+			var g := Color("8fb8ff")
+			Yarn.ball(n, Vector3(0, 0.14, 0), Vector3(0.22, 0.16, 0.34), g)
+			Yarn.lathe(n, [Vector2(0.06, 0.0), Vector2(0.045, 0.12), Vector2(0.035, 0.24), Vector2(0, 0.26)], Vector3(0, 0.17, 0.12), g, true, Vector3(0.5, 0, 0))
+			Yarn.ball(n, Vector3(0, 0.4, 0.27), Vector3(0.09, 0.07, 0.12), g)
+			for s in [-1, 1]:
+				Yarn.ball(n, Vector3(0.03 * s, 0.42, 0.31), Vector3(0.02, 0.025, 0.015), Color("231c2a"), false)
+				for z in [-0.1, 0.1]: Yarn.cyl(n, Vector3(0.07 * s, 0.05, z), 0.035, 0.035, 0.1, g.darkened(0.12))
+			Yarn.cyl(n, Vector3(0, 0.12, -0.25), 0.0, 0.05, 0.25, g, true, Vector3(-1.75, 0, 0))
+			for k in 5: Yarn.ball(n, Vector3(0, 0.22, 0.12 - k * 0.06), Vector3(0.04, 0.03, 0.03), Color("ff8ab3"))
+		"domecek":
+			var wall := Color("ffd6e0"); var roof := Color("ff7a6e"); var wd := Color("b5784a")
+			Yarn.box(n, Vector3(0, 0.02, 0), Vector3(0.62, 0.04, 0.4), wd)
+			Yarn.box(n, Vector3(0, 0.27, -0.18), Vector3(0.6, 0.5, 0.03), wall)
+			for x in [-0.29, 0.29]: Yarn.box(n, Vector3(x, 0.27, 0), Vector3(0.03, 0.5, 0.38), wall)
+			Yarn.box(n, Vector3(0, 0.27, 0), Vector3(0.56, 0.02, 0.36), Color("fff0f6"))
+			for s in [-1, 1]:
+				var r2 := Yarn.box(n, Vector3(0.16 * s, 0.6, 0), Vector3(0.38, 0.03, 0.44), roof)
+				r2.rotation.z = -0.62 * s
+			Yarn.box(n, Vector3(0, 0.15, -0.165), Vector3(0.12, 0.06, 0.01), Color("a8dcff"))
+			Yarn.box(n, Vector3(-0.15, 0.4, -0.165), Vector3(0.1, 0.08, 0.01), Color("a8dcff"))
+			Yarn.box(n, Vector3(-0.14, 0.07, 0.0), Vector3(0.12, 0.06, 0.08), Color("6fa8ff"))
+			Yarn.box(n, Vector3(0.14, 0.32, -0.05), Vector3(0.12, 0.04, 0.12), Color("ffc93c"))
+			Yarn.cyl(n, Vector3(0.15, 0.09, 0.05), 0.04, 0.04, 0.06, Color("4fbf6e"))
+		"panenka":
+			var d = load("res://doll.gd").new(); n.add_child(d)
+			d.build({"skin": 1, "eyes": 1, "hair": 2, "hairc": 3, "top": 2, "topc": 0, "bottom": 1, "botc": 0, "shoes": 0, "ears": 5, "nose": 0, "mouth": 0, "brows": 1})
+			d.scale = Vector3.ONE * 0.3; d.rotation.y = 0.3
+		"zajicekplys":
+			var c := Color("fdfcff")
+			Yarn.ball(n, Vector3(0, 0.09, 0), Vector3(0.17, 0.17, 0.15), c)
+			Yarn.ball(n, Vector3(0, 0.22, 0), Vector3(0.15, 0.14, 0.14), c)
+			for s in [-1, 1]:
+				Yarn.ball(n, Vector3(0.035 * s, 0.33, 0), Vector3(0.04, 0.14, 0.03), c, true, Vector3(0, 0, -0.15 * s))
+				Yarn.ball(n, Vector3(0.035 * s, 0.33, 0.012), Vector3(0.02, 0.09, 0.01), Color("ffb3c6"), false, Vector3(0, 0, -0.15 * s))
+				Yarn.ball(n, Vector3(0.03 * s, 0.23, 0.065), Vector3(0.018, 0.018, 0.01), Color("231c2a"), false)
+			Yarn.ball(n, Vector3(0, 0.21, 0.07), Vector3(0.02, 0.016, 0.01), Color("ff8fb0"), false)
+		# ---------- živá zvířátka (pobíhají a poletují) ----------
+		"kocicka":
+			var b := Node3D.new(); n.add_child(b)
+			var c := Color("ff9a3c")
+			Yarn.ball(b, Vector3(0, 0.08, 0), Vector3(0.12, 0.1, 0.22), c)
+			Yarn.ball(b, Vector3(0, 0.15, 0.11), Vector3(0.11, 0.1, 0.1), c)
+			for s in [-1, 1]:
+				Yarn.cyl(b, Vector3(0.03 * s, 0.21, 0.11), 0.0, 0.022, 0.04, c)
+				Yarn.ball(b, Vector3(0.025 * s, 0.16, 0.155), Vector3(0.018, 0.022, 0.01), Color("231c2a"), false)
+				for z in [-0.06, 0.07]: Yarn.cyl(b, Vector3(0.035 * s, 0.03, z), 0.015, 0.015, 0.06, c.darkened(0.1))
+			Yarn.cyl(b, Vector3(0, 0.13, -0.14), 0.01, 0.015, 0.14, c.darkened(0.1), true, Vector3(-0.6, 0, 0))
+			anim(b, {"k": "wander", "sp": 0.35})
+		"jesterka":
+			var b := Node3D.new(); n.add_child(b)
+			var c := Color("7fd36a")
+			Yarn.ball(b, Vector3(0, 0.025, 0), Vector3(0.05, 0.035, 0.14), c)
+			Yarn.ball(b, Vector3(0, 0.03, 0.08), Vector3(0.04, 0.03, 0.05), c)
+			Yarn.cyl(b, Vector3(0, 0.02, -0.12), 0.0, 0.015, 0.12, c, true, Vector3(-PI / 2, 0, 0))
+			for s in [-1, 1]:
+				Yarn.ball(b, Vector3(0.015 * s, 0.042, 0.095), Vector3(0.01, 0.01, 0.01), Color("231c2a"), false)
+				for z in [-0.04, 0.04]: Yarn.box(b, Vector3(0.035 * s, 0.01, z), Vector3(0.04, 0.008, 0.01), c.darkened(0.15))
+			anim(b, {"k": "wander", "sp": 0.6, "pause": true})
+		"pavouk":
+			var b := Node3D.new(); n.add_child(b)
+			var c := Color("4a3a6a")
+			Yarn.ball(b, Vector3(0, 0.035, -0.02), Vector3(0.06, 0.05, 0.07), c)
+			Yarn.ball(b, Vector3(0, 0.03, 0.03), Vector3(0.04, 0.035, 0.04), c)
+			for s in [-1, 1]:
+				Yarn.ball(b, Vector3(0.01 * s, 0.04, 0.05), Vector3(0.012, 0.012, 0.008), Color.WHITE, false)
+				for k in 4:
+					var leg := Yarn.box(b, Vector3(0.045 * s, 0.025, 0.035 - k * 0.022), Vector3(0.06, 0.006, 0.006), c)
+					leg.rotation = Vector3(0, (k - 1.5) * 0.35 * s, -0.5 * s)
+			anim(b, {"k": "wander", "sp": 0.25, "pause": true})
+		"motylek":
+			var b := Node3D.new(); n.add_child(b)
+			Yarn.ball(b, Vector3.ZERO, Vector3(0.015, 0.015, 0.07), Color("231c2a"), false)
+			for s in [-1, 1]:
+				var w := Node3D.new(); b.add_child(w)
+				Yarn.ball(w, Vector3(0.045 * s, 0.0, 0.012), Vector3(0.08, 0.005, 0.06), Color("ff8ab3"), false)
+				Yarn.ball(w, Vector3(0.035 * s, 0.0, -0.03), Vector3(0.055, 0.005, 0.045), Color("9b7cff"), false)
+				anim(w, {"k": "flap", "s": s})
+			anim(b, {"k": "fly"})
 		# ---------- péče a návyky ----------
 		"kartacek":
 			Yarn.cyl(n, Vector3(0, 0.05, 0), 0.04, 0.035, 0.1, Color("6fa8ff"))

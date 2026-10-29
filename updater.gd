@@ -7,7 +7,7 @@ signal status(kind: String, text: String)   # kind: checking, downloading, done,
 
 const REPO := "Jedn0ta/MujPokojicek"
 const BRANCH := "main"
-const CONTENT := 1   # číslo obsahu v téhle verzi; zvyšuje se s každou aktualizací
+const CONTENT := 2   # číslo obsahu v téhle verzi; zvyšuje se s každou aktualizací
 
 var base := ""   # jen pro zkoušku; prázdné = GitHub
 var _http: HTTPRequest
@@ -38,8 +38,8 @@ func _on_info(result: int, code: int, _h: PackedStringArray, body: PackedByteArr
 		return
 	_info = info
 	var apk := int(Engine.get_meta("apk_code", 0))
-	if int(info.get("min_apk", 0)) > apk or int(info.get("apk", 0)) > apk and int(info.get("content", 0)) <= current_content():
-		# nová APK je potřeba (nebo jen APK je novější)
+	if int(info.get("min_apk", 0)) > apk:
+		# nový obsah potřebuje novější aplikaci (třeba nová oprávnění) — jen tehdy APK
 		status.emit("apk", str(info.get("apk_url", "")))
 		return
 	if int(info.get("content", 0)) <= current_content():

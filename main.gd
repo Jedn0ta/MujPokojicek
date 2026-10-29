@@ -15,6 +15,7 @@ const WIcon := preload("res://weather_icon.gd")
 const UIcon := preload("res://ui_icon.gd")
 const OUT := Vector3(200, 0, 0)
 const Updater := preload("res://updater.gd")
+const PixelEditor := preload("res://pixel_editor.gd")
 const PANEL_W := 350.0
 
 var S: Dictionary
@@ -75,7 +76,7 @@ var head_region := "brada"   # čumáček, oči a pusa se vybírají zvlášť z
 
 var updater: Node
 var upd_btn: Control
-var upd_label: Label
+var tray_scroll: ScrollContainer
 var overlay: PanelContainer
 var game_info: Label
 var cards: Array = []
@@ -97,11 +98,6 @@ func _ready() -> void:
 	var spacer := Control.new(); spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL; left.add_child(spacer)
 	upd_btn = UIcon.new("update", null, Color(0, 0, 0, 0), 80); upd_btn.round_btn = true
 	upd_btn.tapped.connect(_on_update_tap); left.add_child(upd_btn)
-	upd_label = Label.new(); upd_label.add_theme_font_size_override("font_size", 16)
-	upd_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; upd_label.custom_minimum_size.x = 96
-	upd_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	upd_label.text = "v%d.%d" % [int(Engine.get_meta("apk_code", 0)), Updater.current_content()]
-	left.add_child(upd_label)
 	stage = Control.new(); stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL; stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stage.clip_contents = true
 	row.add_child(stage)
@@ -128,6 +124,13 @@ func _ready() -> void:
 	row.add_child(panel)
 	var sc := ScrollContainer.new(); sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	panel.add_child(sc)
+	# posouvání prstem: tažení kdekoli v menu (i přes tlačítka) posune menu
+	sc.gui_input.connect(func(e):
+		if e is InputEventMouseMotion and (e.button_mask & MOUSE_BUTTON_MASK_LEFT):
+			sc.scroll_vertical -= int(e.relative.y)
+		elif e is InputEventScreenDrag:
+			sc.scroll_vertical -= int(e.relative.y))
+	tray_scroll = sc
 	tray = VBoxContainer.new(); tray.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tray.add_theme_constant_override("separation", 12); sc.add_child(tray)
 	_build_overlay()
@@ -168,8 +171,21 @@ func _build_world(vp: SubViewport) -> void:
 	vp.add_child(outside); outside.build()
 	outside.set_weather(int(S.get("weather", 0)), false)
 
+var _heart_t := 0.0
 func _process(d: float) -> void:
+	if _pix_dirty > 0 and Time.get_ticks_msec() > _pix_dirty:
+		_pix_dirty = 0; Data.save_state(S); room.build(current_room(), sel if edit_mode else -1)
 	_bump_small_things()
+	_heart_t += d
+	if _heart_t > 0.9 and tab != "hero" and not window_view:
+		_heart_t = 0.0
+		var items: Array = current_room()["items"]
+		for id in doll_nodes:
+			var dn = doll_nodes[id]
+			var c: Dictionary = people[id]["cmd"] if people.has(id) else {}
+			var i := int(c.get("item", -1))
+			if not dn.walking and c.get("act") in ["hug", "pet"] and i >= 0 and i < items.size() and Catalog.get_item(str(items[i][0])).get("cuddly", false):
+				room.hearts(dn.position + Vector3(0, 1.1 * dn.scale.y, 0))
 	_update_progress()
 	_update_camera(d)
 
@@ -187,18 +203,19 @@ func _on_update_tap() -> void:
 
 func _on_update_status(kind: String, text: String) -> void:
 	_upd_state = kind
+	upd_btn.progress = -1.0
+	upd_btn.selected = false
 	match kind:
-		"checking": upd_btn.kind = "update"; upd_label.text = "…"
-		"downloading": upd_label.text = "0 %"
-		"done": upd_btn.kind = "check"; upd_label.text = "Ťukni = nová hra"
-		"latest": upd_btn.kind = "check"; upd_label.text = "Nejnovější"
-		"apk": _apk_url = text; upd_btn.kind = "update"; upd_label.text = "Ťukni = stáhnout APK"
-		"error": upd_btn.kind = "update"; upd_label.text = text
+		"checking", "downloading": upd_btn.kind = "update"; upd_btn.progress = 0.02
+		"done": upd_btn.kind = "check"; upd_btn.selected = true   # další ťuknutí = spustit novou verzi
+		"latest": upd_btn.kind = "check"
+		"apk": _apk_url = text; upd_btn.kind = "update"; upd_btn.selected = true
+		"error": upd_btn.kind = "update"
 	upd_btn.queue_redraw()
 
 func _update_progress() -> void:
 	if _upd_state == "downloading":
-		upd_label.text = "%d %%" % int(updater.progress() * 100)
+		upd_btn.progress = max(0.02, updater.progress()); upd_btn.queue_redraw()
 
 # ---------- kamera ----------
 
@@ -206,17 +223,17 @@ func _cam_defaults() -> void:
 	if tab == "hero":
 		cam_target = Vector3(0, 0.55, 0); cam_yaw = 0.0; cam_pitch = 0.08; cam_dist = 3.0
 	else:
-		cam_target = Vector3(0, 0.3, -0.1); cam_yaw = 0.15; cam_pitch = 0.62; cam_dist = 6.6
+		cam_target = Vector3(0, 0.3, -0.1); cam_yaw = 0.12; cam_pitch = 0.6; cam_dist = 7.8
 
 func _clamp_camera() -> void:
 	if tab == "hero":
 		cam_dist = clampf(cam_dist, 1.1, 4.2)
 		cam_target.y = lerpf(0.55, 0.78, clampf((3.0 - cam_dist) / 1.9, 0, 1))
 	else:
-		cam_dist = clampf(cam_dist, 2.2, 9.0)
+		cam_dist = clampf(cam_dist, 2.2, 10.5)
 		cam_pitch = clampf(cam_pitch, 0.22, 1.25)
 		cam_yaw = clampf(cam_yaw, -0.35, 1.3)
-		cam_target.x = clampf(cam_target.x, -2.0, 2.0); cam_target.z = clampf(cam_target.z, -1.6, 1.6)
+		cam_target.x = clampf(cam_target.x, -2.8, 2.8); cam_target.z = clampf(cam_target.z, -1.6, 1.6)
 
 func _cam_button(k: String) -> void:
 	match k:
@@ -328,7 +345,7 @@ func _bump_small_things() -> void:
 		for i in items.size():
 			if i == aim or push_cool.get(i, 0) > now: continue
 			var e := Catalog.get_item(str(items[i][0]))
-			if not Paths.is_small(e): continue
+			if not Paths.is_small(e) or e.get("live", false): continue
 			var p: Vector3 = room.node_pos(i)
 			if Vector2(p.x - d.position.x, p.z - d.position.z).length() < 0.17:
 				room.push(i, fwd + (p - d.position).normalized() * 0.5, items)
@@ -446,6 +463,8 @@ func _on_stage_input(e: InputEvent) -> void:
 		else: _p_up(e.index, e.position)
 	elif e is InputEventScreenDrag:
 		_p_move(e.index, e.position, e.relative)
+	elif e is InputEventMouse and e.device == InputEvent.DEVICE_ID_EMULATION:
+		return   # myš napodobená z prstu: prsty už řešíme výše
 	elif e is InputEventMouseButton:
 		if e.button_index == MOUSE_BUTTON_WHEEL_UP and e.pressed: cam_dist *= 0.9; _clamp_camera()
 		elif e.button_index == MOUSE_BUTTON_WHEEL_DOWN and e.pressed: cam_dist *= 1.1; _clamp_camera()
@@ -503,8 +522,8 @@ func _p_move(i: int, p: Vector2, rel: Vector2) -> void:
 		var hit = _floor_hit(p)
 		if hit != null:
 			var items: Array = S["room"]["items"]
-			items[dragging][1] = clampf(hit.x, -2.35, 2.35)
-			items[dragging][2] = clampf(hit.z, -1.85, 1.85)
+			items[dragging][1] = clampf(hit.x, -Room.HALF.x + 0.15, Room.HALF.x - 0.15)
+			items[dragging][2] = clampf(hit.z, -Room.HALF.y + 0.15, Room.HALF.y - 0.15)
 			room.place(dragging, items[dragging])
 		return
 	cam_yaw -= rel.x * 0.006
@@ -538,9 +557,14 @@ func _tap(p: Vector2) -> void:
 		var hit = _floor_hit(p)
 		if hit == null: return
 		var items: Array = current_room()["items"]
+		# živá zvířátka jsou jinde než jejich místo: vezmi, kde jsou teď
+		for k in items.size():
+			if Catalog.get_item(str(items[k][0])).get("live", false):
+				var lp: Vector3 = room.live_pos(k)
+				items[k][1] = lp.x; items[k][2] = lp.z
 		var i := _nearest_item(items, hit)
-		if i >= 0: _my_cmd(Interact.at(items, i, people, net.my_id()))
-		else: _my_cmd(Interact.walk(clampf(hit.x, -2.35, 2.35), clampf(hit.z, -1.85, 1.85)))
+		if i >= 0: _my_cmd(Interact.at(items, i, people, net.my_id(), cam.global_position))
+		else: _my_cmd(Interact.walk(clampf(hit.x, -Room.HALF.x + 0.15, Room.HALF.x - 0.15), clampf(hit.z, -Room.HALF.y + 0.15, Room.HALF.y - 0.15)))
 		return
 	var hit = _floor_hit(p)
 	sel = _nearest_item(S["room"]["items"], hit) if hit != null else -1
@@ -555,6 +579,7 @@ func _enter_window() -> void:
 	var lv := clampi(int(S.get("wlevel", 1)), 1, 4)
 	frame.cols = GRIDS[lv - 1][0]; frame.rows = GRIDS[lv - 1][1]
 	frame.curtain = 0.0; frame.highlight = -1
+	frame.curtain_color = Data.pick(Data.YARN, current_room().get("curt", 0))
 	outside.frozen = true
 	_refresh_stage(); _build_tray()
 	_new_round()
@@ -562,13 +587,14 @@ func _enter_window() -> void:
 func _leave_window(walk := true) -> void:
 	window_view = false
 	wg["phase"] = "idle"
-	outside.undo(); outside.frozen = false
+	outside.undo(); outside.show_all(); outside.frozen = false
 	frame.highlight = -1; frame.curtain = 0.0
 	if walk: _my_cmd(Interact.walk(Interact.Room_center_x(), -1.0))
 
 func _new_round() -> void:
 	if not window_view: return
 	outside.undo()
+	outside.set_density(clampi(int(S.get("wlevel", 1)), 1, 4))
 	frame.highlight = -1
 	wg = {"phase": "look", "pane": -1, "tries": 0, "id": randi()}
 	var my_id: int = wg["id"]
@@ -708,10 +734,12 @@ func _opt_row(key: String, count: int, target: Dictionary, colors: Array = [], s
 		var tex: Texture2D = textures[i] if i < textures.size() else (null if not colors.is_empty() else _opt_tex(key, i))
 		var b := UIcon.new("", tex, colors[i] if not colors.is_empty() else Color(0, 0, 0, 0), sz)
 		if tex == null and colors.is_empty(): b.text = str(i + 1)
+		if key == "wallp" and i == 4: b.text = ""; b.kind = "pencil"
 		b.selected = int(target.get(key, 0)) == i
 		flow.add_child(b)
 		b.tapped.connect(func():
 			target[key] = i; Data.save_state(S); _refresh_stage()
+			if key == "wallp": _build_tray(); return
 			if key == "headshape":
 				sculpt_tool = ""
 				_clamp_camera(); _build_tray(); return
@@ -737,6 +765,27 @@ func _sculpt_tools(h: Dictionary) -> void:
 	mb.selected = sculpt_mirror
 	mb.tapped.connect(func(): sculpt_mirror = not sculpt_mirror; mb.selected = sculpt_mirror; mb.queue_redraw())
 	_icon("reset", func(): h["sculpt"] = []; Data.save_state(S); _refresh_stage(), 72, row2)
+	_gap()
+
+## Malování vlastní tapety (25 × 25 čtverečků).
+var _pix_dirty := 0
+func _pixel_tools(r: Dictionary) -> void:
+	var ed := PixelEditor.new()
+	if r.get("pix", []).size() == PixelEditor.N * PixelEditor.N: ed.pix = r["pix"]
+	ed.base = Data.pick(Data.WALL, r.get("wall", 0))
+	ed.changed.connect(func(): r["pix"] = ed.pix; _pix_dirty = Time.get_ticks_msec() + 250)
+	var pal := _flow()
+	for k in PixelEditor.PALETTE.size():
+		var b := UIcon.new("", null, PixelEditor.PALETTE[k], 50)
+		b.selected = k == ed.brush
+		b.tapped.connect(func():
+			ed.brush = k
+			for j in pal.get_child_count(): pal.get_child(j).selected = j == k; pal.get_child(j).queue_redraw())
+		pal.add_child(b)
+	tray.add_child(ed)
+	var tools := _flow()
+	_icon("fill", func(): ed.fill_all(), 64, tools)
+	_icon("trash", func(): ed.clear(), 64, tools)
 	_gap()
 
 ## Úpravy míst na hlavě: vyber místo, pak nafoukni / splaskni, protáhni / zkrať, zvětši / zmenši.
@@ -798,7 +847,7 @@ func _build_tray() -> void:
 		_gap()
 		var lv := _flow()
 		for k in 4:
-			var b := _icon("level%d" % (k + 1), func():
+			var b := _icon("few%d" % (k + 1), func():
 				S["wlevel"] = k + 1; Data.save_state(S)
 				frame.cols = GRIDS[k][0]; frame.rows = GRIDS[k][1]
 				_build_tray(); _new_round(), 96, lv)
@@ -876,7 +925,10 @@ func _build_tray() -> void:
 			_opt_row("wall", Data.WALL.size(), r, Data.WALL, 64)
 			var wt := []
 			for k in Data.WALLP.size(): wt.append(Room.pattern_mat(Data.pick(Data.WALL, r.get("wall", 0)), k, false).albedo_texture)
+			wt.append(null)
 			_opt_row("wallp", Data.WALLP.size(), r, [], 84, wt)
+			if int(r.get("wallp", 0)) == 4: _pixel_tools(r)
+			_opt_row("curt", Data.YARN.size(), r, Data.YARN, 56)
 			_opt_row("floor", Data.FLOOR.size(), r, Data.FLOOR, 64)
 			var ft := []
 			for k in Data.FLOORP.size(): ft.append(Room.pattern_mat(Data.pick(Data.FLOOR, r.get("floor", 0)), k, true).albedo_texture)

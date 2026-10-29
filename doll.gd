@@ -592,6 +592,9 @@ func _apply_pose() -> void:
 		"alarm", "wish", "open":
 			pose.position.y = abs(sin(t * 6.0)) * 0.05 if str(cmd.get("act")) == "alarm" else 0.0
 			for i in 2: arms[i].rotation = Vector3(0, 0, (2.6 + sin(t * 5.0) * 0.15) * (-1 if i == 0 else 1))
+		"pet":
+			pose.rotation.x = 0.35
+			arms[1].rotation = Vector3(-1.2 + sin(t * 5.0) * 0.25, 0, 0.3)
 		"feed":
 			arms[1].rotation = Vector3(-1.8 + sin(t * 9.0) * 0.1, 0, 0.3)
 		"window":

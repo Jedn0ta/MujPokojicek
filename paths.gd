@@ -3,7 +3,7 @@ class_name Paths
 ## Velký nábytek je překážka, koberce a malé věci ne (malé věci panenka odstrčí).
 
 const CELL := 0.1
-const HALF := Vector2(2.5, 2.0)
+const HALF := Vector2(3.35, 2.0)
 const MARGIN := 0.11   # půlka šířky panenky
 
 var grid := AStarGrid2D.new()

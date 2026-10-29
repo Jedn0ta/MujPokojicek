@@ -86,6 +86,15 @@ const RAW := [
 	["medvidek", "hracky", "", 1.0, "hug", 0.25, 0.22, {}],
 	["kostky", "hracky", "", 1.0, "play", 0.35, 0.35, {}],
 	["autick", "hracky", "", 1.0, "play", 0.3, 0.2, {}],
+	["dino1", "hracky", "", 1.0, "play", 0.25, 0.4, {"tip": "Tyranosaurus žil dávno, dávno."}],
+	["dino2", "hracky", "", 1.0, "play", 0.25, 0.55, {"tip": "Dlouhokrčka okusovala listí na stromech."}],
+	["domecek", "hracky", "", 1.0, "play", 0.62, 0.4, {"tip": "Panenky mají vlastní domeček."}],
+	["panenka", "hracky", "", 1.0, "hug", 0.2, 0.15, {"cuddly": true}],
+	["zajicekplys", "hracky", "", 1.0, "hug", 0.2, 0.18, {"cuddly": true}],
+	["kocicka", "zviratka", "", 1.0, "pet", 0.25, 0.25, {"live": true, "cuddly": true, "tip": "Kočičku hladíme jemně."}],
+	["jesterka", "zviratka", "", 1.0, "look", 0.15, 0.2, {"live": true, "tip": "Ještěrka se ráda vyhřívá na sluníčku."}],
+	["pavouk", "zviratka", "", 1.0, "look", 0.15, 0.15, {"live": true, "tip": "Pavoučci chytají mušky do sítě."}],
+	["motylek", "zviratka", "", 1.0, "look", 0.15, 0.15, {"live": true, "flying": true, "tip": "Motýlek sedá na kytičky."}],
 	["akvarko", "zviratka", "", 1.0, "feed", 0.62, 0.36, {}],
 	["kulate", "zviratka", "", 1.0, "feed", 0.34, 0.34, {}],
 	["terarko", "zviratka", "", 1.0, "look", 0.62, 0.38, {"tip": "Mravenci staví cestičky a pomáhají si."}],
@@ -146,6 +155,7 @@ static func all() -> Dictionary:
 		for r in RAW:
 			var e := {"id": r[0], "cat": r[1], "file": r[2], "scale": r[3], "act": r[4], "w": r[5], "d": r[6]}
 			e.merge(r[7])
+			if r[0] in ["medvidek", "polstar1", "polstar2", "srdicko"]: e["cuddly"] = true
 			_all[r[0]] = e
 	return _all
 

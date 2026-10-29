@@ -46,7 +46,7 @@ func build() -> void:
 	var house_ids := ["building_A", "building_C", "building_B", "building_G", "building_E", "building_A", "building_C", "building_B"]
 	for k in house_ids.size():
 		var hm := _model(house_ids[k], Vector3(-15.75 + k * 4.5, 0, -10), 2.2)
-		hm.set_meta("h", 2.5); props.append(hm)
+		hm.set_meta("h", 2.5); props.append(hm); houses.append(hm)
 	for x in [-9.0, -3.0, 3.0, 9.0]:
 		var sl := _model("streetlight", Vector3(x, 0, -6.6), 2.6); sl.set_meta("h", 1.3); props.append(sl)
 		var l := OmniLight3D.new(); l.position = Vector3(x, 2.3, -6.4); l.light_color = Color("ffd98a")
@@ -177,6 +177,36 @@ func _process(d: float) -> void:
 
 # ---------- minihra "Co se změnilo?" ----------
 
+## Kolik věcí je za oknem vidět (lehká = málo, těžká = hodně).
+const DENSITY := [5, 9, 15, 99]
+var _game_hidden: Array = []
+
+func set_density(level: int) -> void:
+	show_all()
+	var keep: int = DENSITY[clampi(level - 1, 0, 3)]
+	# vždy nech domy uprostřed a pár velkých věcí; zbytek schovej
+	var order := props.duplicate()
+	order.sort_custom(func(a, b): return _priority(a) > _priority(b))
+	for k in order.size():
+		if k >= keep:
+			order[k].visible = false
+			_game_hidden.append(order[k])
+	for fl in get_children():
+		pass
+
+func _priority(n: Node3D) -> float:
+	var p := 0.0
+	if n in houses: p += 3.0 - abs(n.position.x) * 0.2
+	if n in trees: p += 2.5
+	if n.get_meta("small", false): p -= 3.0
+	if n in clouds: p += 1.0 - abs(n.position.x) * 0.05
+	p -= abs(n.position.x) * 0.08
+	return p
+
+func show_all() -> void:
+	for n in _game_hidden: if is_instance_valid(n): n.visible = true
+	_game_hidden.clear()
+
 const GROUND_PROPS := ["kocka", "pejsek", "snehulak", "duch", "dyne", "mic", "zajicek", "darek"]
 const SKY_PROPS := ["ptacek", "balonek", "drak", "hvezda", "motylek", "ufo"]
 
@@ -212,7 +242,7 @@ func _candidates(cam: Camera3D, pane: Rect2, level: int) -> Array:
 	var inner := pane.grow(-pane.size.x * 0.12)
 	var out := []
 	for n in props:
-		if not n.visible: continue
+		if not n.visible or n in _game_hidden: continue
 		if n.get_meta("small", false) and level < 4: continue
 		if inner.has_point(_screen(cam, n)): out.append(n)
 	out.shuffle()

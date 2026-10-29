@@ -8,6 +8,7 @@ var curtain := 0.0        # 0 = roztažené, 1 = zatažené
 var highlight := -1       # tabulka, kterou ukázat (nápověda)
 var flash := -1           # tabulka, kam dítě ťuklo špatně
 var flash_t := 0.0
+var curtain_color := Color("ff8ab3")
 var _t := 0.0
 var _stars: Array = []    # [pozice, rychlost, život]
 
@@ -60,11 +61,11 @@ func _draw() -> void:
 		for s in [0, 1]:
 			var cw := r.size.x / 2.0 * curtain + 4
 			var x0 := r.position.x if s == 0 else r.end.x - cw
-			draw_rect(Rect2(x0, r.position.y, cw, r.size.y), Data.PINK)
+			draw_rect(Rect2(x0, r.position.y, cw, r.size.y), curtain_color)
 			var folds := 7
 			for f in folds:
 				var fx := x0 + cw * (f + 0.5) / folds
-				draw_rect(Rect2(fx - 3, r.position.y, 6, r.size.y), Data.PINK.darkened(0.1))
+				draw_rect(Rect2(fx - 3, r.position.y, 6, r.size.y), curtain_color.darkened(0.1))
 	# rám a příčky
 	draw_rect(Rect2(0, 0, w, B), white); draw_rect(Rect2(0, h - B * 1.6, w, B * 1.6), white)
 	draw_rect(Rect2(0, 0, B, h), white); draw_rect(Rect2(w - B, 0, B, h), white)
@@ -80,7 +81,7 @@ func _draw() -> void:
 		var x0 := 0.0 if s == 0 else w
 		var dir := 1.0 if s == 0 else -1.0
 		var pts := PackedVector2Array([Vector2(x0, 0), Vector2(x0 + dir * w * 0.07, 0), Vector2(x0 + dir * w * 0.045, h * 0.5), Vector2(x0 + dir * w * 0.06, h - B * 1.6), Vector2(x0, h - B * 1.6)])
-		draw_colored_polygon(pts, Data.PINK)
+		draw_colored_polygon(pts, curtain_color)
 		draw_circle(Vector2(x0 + dir * w * 0.045, h * 0.5), 10, Color("ffd25a"))
 	draw_rect(Rect2(0, 0, w, 14), Color("b5784a"))
 	if highlight >= 0:

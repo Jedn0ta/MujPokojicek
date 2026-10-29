@@ -12,7 +12,7 @@ const YARN := [Color("ff8ab3"), Color("5cc6b8"), Color("ffc93c"), Color("9b7cff"
 const HAIRC := [Color("4a3020"), Color("9a6634"), Color("f2c14e"), Color("d8532c"), Color("7b5be0"), Color("2a2230"), Color("ff9ec4")]
 const WALL := [Color("ffe8c2"), Color("d6f0ff"), Color("e8ddff"), Color("d9f5d0"), Color("ffd6e0"), Color("fff6a8"), Color("ffffff"), Color("c9e9ff")]
 const FLOOR := [Color("c98b55"), Color("e7c9a0"), Color("a7b1bb"), Color("8fc79a"), Color("b99ae0"), Color("ff9ec4"), Color("8fc4ff"), Color("f6f2ff")]
-const WALLP := ["hladká", "proužky", "puntíky", "hvězdičky"]
+const WALLP := ["hladká", "proužky", "puntíky", "hvězdičky", "vlastní"]
 const FLOORP := ["hladká", "prkna", "dlaždice", "šachovnice"]
 const WEATHER := ["slunce", "dest", "snih", "vitr", "noc", "duha"]
 
