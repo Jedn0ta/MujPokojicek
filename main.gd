@@ -444,7 +444,7 @@ func _refresh_stage() -> void:
 	cam_btns.visible = not window_view
 	if tab == "hero":
 		room.visible = false; pedestal.visible = true; frame.visible = false; outside.restore_room()
-		var d := Doll.new(); dolls.add_child(d); d.build(S["hero"]); d.rotation.y = spin
+		var d := _new_doll(S["hero"]); dolls.add_child(d); d.build(S["hero"]); d.rotation.y = spin
 		return
 	room.visible = true; pedestal.visible = false
 	room.build(current_room(), sel if tab == "room" and edit_mode else -1)
@@ -452,7 +452,8 @@ func _refresh_stage() -> void:
 	var ids := people.keys()
 	for k in ids.size():
 		var id: int = ids[k]
-		var d := Doll.new(); dolls.add_child(d); d.build(people[id]["data"].get("hero", {}))
+		var hd: Dictionary = people[id]["data"].get("hero", {})
+		var d := _new_doll(hd); dolls.add_child(d); d.build(hd)
 		d.arrived.connect(_on_arrived.bind(id))
 		doll_nodes[id] = d
 		var c: Dictionary = people[id]["cmd"]
@@ -539,7 +540,7 @@ func _p_down(i: int, p: Vector2) -> void:
 	if touches.size() == 1:
 		_down_pos = p; _down_time = Time.get_ticks_msec(); _moved = false
 		dragging = -1
-		if tab == "hero" and sculpt_tool != "" and int(S["hero"].get("headshape", 0)) == HeadShape.CUSTOM and dolls.get_child_count() > 0:
+		if tab == "hero" and sculpt_tool != "" and int(S["hero"].get("headshape", 0)) == HeadShape.CUSTOM and dolls.get_child_count() > 0 and dolls.get_child(0).has_method("sculpt_ray"):
 			var hit = dolls.get_child(0).sculpt_ray(cam.project_ray_origin(p), cam.project_ray_normal(p))
 			if hit != null:
 				sculpting = true; _moved = true
@@ -565,7 +566,7 @@ func _p_down(i: int, p: Vector2) -> void:
 func _p_move(i: int, p: Vector2, rel: Vector2) -> void:
 	if not touches.has(i): return
 	touches[i] = p
-	if sculpting:
+	if sculpting and dolls.get_child(0).has_method("sculpt_ray"):
 		var hit = dolls.get_child(0).sculpt_ray(cam.project_ray_origin(p), cam.project_ray_normal(p))
 		if hit != null: dolls.get_child(0).sculpt_brush(hit, sculpt_tool, sculpt_size, sculpt_mirror)
 		return
@@ -941,6 +942,9 @@ func _view_tex(k: int) -> Texture2D:
 	var p := "res://icons/view_%d.png" % k
 	return load(p) if ResourceLoader.exists(p) else null
 
+func _new_doll(h: Dictionary) -> Node3D:
+	return KKDoll.new() if str(h.get("style", "")) == "kk" else Doll.new()
+
 func _opt_tex(key: String, i: int) -> Texture2D:
 	var p := "res://icons/opt_%s_%d.png" % [key, i]
 	return load(p) if ResourceLoader.exists(p) else null
@@ -1031,6 +1035,19 @@ func _build_tray() -> void:
 			le.text_changed.connect(func(t): S["name"] = t if t != "" else "Já"; Data.save_state(S))
 			top.add_child(le)
 			_gap()
+			# styl postavičky: panenka z kódu, nebo složená z dílů (KayKit)
+			var sf := _flow()
+			for st in [["", "style_doll"], ["kk", "style_kk"]]:
+				var sb := _icon("", func():
+					h["style"] = st[0]; Data.save_state(S); _refresh_stage(); _build_tray(), 96, sf, _opt_tex(st[1], 0))
+				sb.selected = str(h.get("style", "")) == st[0]
+			_gap()
+			if str(h.get("style", "")) == "kk":
+				for key in ["kkhead", "kkhat", "kkbody", "kkarms", "kklegs", "kkcape"]:
+					_opt_row(key, KKDoll.names(key), h)
+				_opt_row("kktint", KKDoll.TINT.size(), h, KKDoll.TINT, 56)
+				_opt_row("kkhattint", KKDoll.TINT.size(), h, KKDoll.TINT, 56)
+				return
 			_opt_row("headshape", Data.OPT["headshape"].size(), h)
 			_opt_row("headw", 5, h, [], 72)
 			_opt_row("headh", 5, h, [], 72)
@@ -1136,6 +1153,9 @@ func _random_hero() -> void:
 	# ať to není moc přeplácané: rohy, ocásek, křídla jen občas
 	for k in ["horns", "tail", "wings", "extra"]:
 		if randf() < 0.5: h[k] = 0
+	for k in ["kkhead", "kkbody", "kkarms", "kklegs", "kkhat", "kkcape", "kktint", "kkhattint"]: h[k] = randi() % KKDoll.names(k)
+	if randf() < 0.4: h["kkhat"] = 0
+	if randf() < 0.4: h["kkcape"] = 0
 	Data.save_state(S)
 
 func _on_found(n: String, ip: String) -> void:
