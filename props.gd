@@ -66,6 +66,24 @@ static func fish(n: Node3D, c: Color, size: float) -> Node3D:
 static func build(n: Node3D, id: String) -> bool:
 	var wood := Color("b5784a")
 	match id:
+		# ---------- živá zvířátka Gobkit (CC0) ----------
+		"corgi", "kachnicka", "hrosik", "nosorozec", "ptakopysk", "pandacervena", "netopyrek":
+			var file: String = {"corgi": "Corgi", "kachnicka": "Duck", "hrosik": "Hippo", "nosorozec": "Rhino", "ptakopysk": "Platypus", "pandacervena": "Red", "netopyrek": "Bat"}[id]
+			var body := Node3D.new(); n.add_child(body)
+			var m: Node3D = load("res://models/gob/%s.glb" % file).instantiate()
+			body.add_child(m)
+			var aabb := AABB(); var first := true
+			for mi in m.find_children("*", "MeshInstance3D", true, false):
+				var bb: AABB = (mi as MeshInstance3D).transform * (mi as MeshInstance3D).get_aabb()
+				aabb = bb if first else aabb.merge(bb); first = false
+			var s: float = (0.32 if id != "netopyrek" else 0.22) / maxf(aabb.size.y, 0.01)
+			m.scale = Vector3.ONE * s; m.position.y = -aabb.position.y * s
+			var ga := preload("res://gob_anim.gd").new(); body.add_child(ga)
+			if id == "netopyrek":
+				ga.always_idle = true
+				anim(body, {"k": "fly", "ph": 1.3})
+			else:
+				anim(body, {"k": "wander", "sp": 0.35, "pause": true})
 		# ---------- hudba a kufr ----------
 		"kufr":
 			var v := Color("9b6bff"); var g := Color("ffc93c")

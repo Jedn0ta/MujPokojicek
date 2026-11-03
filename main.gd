@@ -985,7 +985,7 @@ func _settings_tray() -> void:
 	else: _upd_text()
 	_gap()
 	_label("Pro rodiče: hra funguje bez internetu, kamarádi se připojují přes stejnou wifi. Žádné reklamy ani nákupy.", true)
-	_label("Poděkování: 3D modely KayKit (CC0), hudba HoliznaCC0, Komiku, Loyalty Freak Music a John Bartmann (CC0), zvuky Kenney a freesound.org (CC0).", true)
+	_label("Poděkování: 3D modely KayKit (CC0), hudba HoliznaCC0, Komiku, Loyalty Freak Music a John Bartmann (CC0), zvuky Kenney a freesound.org (CC0), zvířátka Gobkit (CC0).", true)
 
 func _build_tray() -> void:
 	_clear()
@@ -1107,10 +1107,21 @@ func _build_tray() -> void:
 			_gap()
 			var flow := _flow()
 			for id in Catalog.in_cat(cat):
-				_icon("", func():
-					r["items"].append([id, randf_range(-0.6, 0.6), randf_range(-0.2, 0.6), 0])
-					sel = r["items"].size() - 1
+				# každá věc může být v pokojíčku jen jednou: podruhé ji jen vybereme (nebo vyndáme z kufru)
+				var have := -1
+				for j in r["items"].size():
+					if str(r["items"][j][0]) == id: have = j; break
+				var in_chest: bool = r.get("chest", []).has(id)
+				var ib := _icon("", func():
+					if have >= 0:
+						sel = have; Snd.play("cink")
+					else:
+						if in_chest: r["chest"].erase(id)
+						r["items"].append([id, randf_range(-0.6, 0.6), randf_range(-0.2, 0.6), 0])
+						sel = r["items"].size() - 1
 					Data.save_state(S); _refresh_stage(); _build_tray(), 96, flow, Catalog.icon(id))
+				ib.selected = have >= 0
+				if have >= 0 or in_chest: ib.modulate = Color(1, 1, 1, 0.55)
 			_gap()
 			_opt_row("wall", Data.WALL.size(), r, Data.WALL, 64)
 			var wt := []

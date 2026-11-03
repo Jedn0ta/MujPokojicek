@@ -64,6 +64,7 @@ static func play(name: String, pitch_rand := 0.08, vol := 0.0) -> void:
 static func for_item(id: String, act: String) -> String:
 	match id:
 		"kocicka": return "mnau"
+		"corgi", "kachnicka", "hrosik", "nosorozec", "ptakopysk", "pandacervena": return "piskani"
 		"mic": return "boing"
 		"kostky", "domecek": return "klap"
 		"autick": return "brm"
