@@ -327,6 +327,21 @@ func build(h: Dictionary) -> void:
 		2:
 			for s in [-1, 1]: Yarn.ball(pose, Vector3(0.12 + 0.06 * s, crown - 0.04, 0.07), Vector3(0.1, 0.075, 0.05), hatc, true, Vector3(0, 0, 0.3 * s))
 			Yarn.ball(pose, Vector3(0.12, crown - 0.04, 0.08), Vector3(0.045, 0.045, 0.045), hatc.darkened(0.15))
+		3:
+			# kšiltovka: čepice nahoře a kšilt dopředu
+			var brim2 := crown - 0.13
+			head_part(hatc, 0.03, func(p: Vector3): return p.y > brim2)
+			var vis := Yarn.ball(pose, Vector3(0, brim2 + 0.005, 0.27 * head_depth), Vector3(0.3 * head_k.x, 0.03, 0.22), hatc.darkened(0.1))
+			vis.rotation.x = -0.12
+			Yarn.ball(pose, Vector3(0, crown + 0.015, 0), Vector3(0.05, 0.03, 0.05), hatc.lightened(0.3))
+		4:
+			# korunka
+			var cr := Node3D.new(); cr.position = Vector3(0, crown - 0.03, 0); pose.add_child(cr)
+			Yarn.cyl(cr, Vector3(0, 0.03, 0), 0.13, 0.13, 0.06, Color("ffc93c"))
+			for k in 5:
+				var a := k * TAU / 5.0
+				Yarn.cyl(cr, Vector3(cos(a) * 0.12, 0.09, sin(a) * 0.12), 0.0, 0.035, 0.07, Color("ffc93c"), false)
+				Yarn.ball(cr, Vector3(cos(a) * 0.13, 0.035, sin(a) * 0.13), Vector3(0.025, 0.025, 0.02), [Color("ff5d73"), Color("6fa8ff"), Color("5fd16a")][k % 3], false)
 	_apply_pose()
 
 func _nose(kind: int, sk: Color) -> void:

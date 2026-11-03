@@ -86,6 +86,7 @@ var cards: Array = []
 
 func _ready() -> void:
 	S = Data.load_state()
+	Data.apply_theme(str(S.get("theme", "girl")))
 	theme = _make_theme()
 	var bg := ColorRect.new(); bg.color = Data.BG
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT); add_child(bg)
@@ -95,7 +96,7 @@ func _ready() -> void:
 	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 14); m.add_child(row)
 	var left := VBoxContainer.new(); left.add_theme_constant_override("separation", 16); row.add_child(left)
 	for t in ["hero", "room", "friends"]:
-		var b := UIcon.new({"hero": "doll", "room": "house", "friends": "friends"}[t], null, Color(0, 0, 0, 0), 96)
+		var b := UIcon.new({"hero": "doll_boy" if Data.theme == "boy" else "doll", "room": "house", "friends": "friends"}[t], null, Color(0, 0, 0, 0), 96)
 		b.round_btn = true
 		b.tapped.connect(_set_tab.bind(t)); left.add_child(b); tabs[t] = b
 	var spacer := Control.new(); spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL; left.add_child(spacer)
@@ -162,10 +163,11 @@ func _ready() -> void:
 	pex.changed.connect(func(st): net.send_game(st); _on_game(st))
 	_people_reset()
 	_set_tab("hero")
+	if not S.has("theme"): _theme_picker.call_deferred()
 
 func _build_world(vp: SubViewport) -> void:
 	env = Environment.new()
-	env.background_mode = Environment.BG_COLOR; env.background_color = Color("ffe9f3")
+	env.background_mode = Environment.BG_COLOR; env.background_color = Data.STAGE
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color("fff4fb"); env.ambient_light_energy = 0.45
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
@@ -238,6 +240,7 @@ func _update_progress() -> void:
 func _cam_defaults() -> void:
 	if tab == "hero":
 		cam_target = Vector3(0, 0.55, 0); cam_yaw = 0.0; cam_pitch = 0.08; cam_dist = 3.0
+		if hero_tab in ["oci", "pusa", "vlasy"]: cam_target.y = 0.74; cam_dist = 2.1
 	else:
 		cam_target = Vector3(0, 0.3, -0.1); cam_yaw = 0.12; cam_pitch = 0.6; cam_dist = 7.8
 
@@ -942,6 +945,106 @@ func _view_tex(k: int) -> Texture2D:
 	var p := "res://icons/view_%d.png" % k
 	return load(p) if ResourceLoader.exists(p) else null
 
+# ---------- jednoduchý editor postavičky ----------
+# Jako v dětských hrách: nejdřív hotový kamarád, pak pár velkých záložek s obrázky.
+
+var hero_tab := "kamos"
+const HERO_TABS := [["kamos", "tab_kamos"], ["oci", "tab_oci"], ["pusa", "tab_pusa"], ["vlasy", "tab_vlasy"],
+	["obleceni", "tab_obleceni"], ["doplnky", "tab_doplnky"], ["telo", "tab_telo"], ["nastroje", "tab_nastroje"]]
+const KK_TABS := [["kamos", "tab_kamos"], ["oci", "tab_oci"], ["doplnky", "tab_doplnky"], ["obleceni", "tab_obleceni"], ["telo", "tab_telo"]]
+
+func _hero_cam() -> void:
+	var close: bool = hero_tab in ["oci", "pusa", "vlasy"]
+	cam_target = Vector3(0, 0.74 if close else 0.55, 0); cam_dist = 2.1 if close else 3.0
+	cam_pitch = 0.08
+
+func _cheer() -> void:
+	if dolls.get_child_count() == 0: return
+	var d = dolls.get_child(0)
+	d.command({"act": "wish"}, true)
+	Snd.play("trpyt")
+	await get_tree().create_timer(1.1).timeout
+	if is_instance_valid(d) and tab == "hero": d.command({"act": "idle"}, true)
+
+func _hero_tray(h: Dictionary) -> void:
+	var kk := str(h.get("style", "")) == "kk"
+	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 10); tray.add_child(top)
+	_icon("dice", func(): _random_hero(); _refresh_stage(); _build_tray(); _cheer(), 84, top)
+	var le := LineEdit.new(); le.text = S["name"]; le.max_length = 14; le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	le.custom_minimum_size.y = 72
+	le.text_changed.connect(func(t): S["name"] = t if t != "" else "Já"; Data.save_state(S))
+	top.add_child(le)
+	var tabs_f := _flow()
+	var list: Array = KK_TABS if kk else HERO_TABS
+	var known := false
+	for t in list: if t[0] == hero_tab: known = true
+	if not known: hero_tab = "kamos"
+	for t in list:
+		var tb := _icon(t[1], func(): hero_tab = t[0]; _hero_cam(); _build_tray(), 62, tabs_f)
+		tb.selected = hero_tab == t[0]
+	_gap()
+	var pick := func(key: String, n: int, colors: Array = [], sz := 96.0): _opt_row(key, n, h, colors, sz)
+	match hero_tab:
+		"kamos":
+			var pf := _flow()
+			var order: Array = Data.BOY_ORDER if Data.theme == "boy" else Data.GIRL_ORDER
+			for k in order:
+				_icon("", func():
+					var keep_name: String = S["name"]
+					var p: Dictionary = Data.default_state()["hero"].duplicate()
+					p.merge(Data.PRESETS[k], true)
+					if not p.has("style"): p["style"] = ""
+					S["hero"] = p; S["name"] = keep_name; Data.save_state(S)
+					_refresh_stage(); _build_tray(); _cheer(), 92, pf, _opt_tex("preset", k))
+		"oci":
+			if kk: pick.call("kkhead", KKDoll.names("kkhead"))
+			else:
+				pick.call("eyes", Data.OPT["eyes"].size())
+				pick.call("brows", Data.OPT["brows"].size())
+		"pusa":
+			pick.call("mouth", Data.OPT["mouth"].size())
+			pick.call("nose", Data.OPT["nose"].size())
+		"vlasy":
+			pick.call("hair", Data.OPT["hair"].size())
+			pick.call("hairc", Data.HAIRC.size(), Data.HAIRC, 60)
+		"obleceni":
+			if kk:
+				pick.call("kkbody", KKDoll.names("kkbody"))
+				pick.call("kktint", KKDoll.TINT.size(), KKDoll.TINT, 60)
+				pick.call("kkcape", KKDoll.names("kkcape"))
+			else:
+				pick.call("top", Data.OPT["top"].size())
+				pick.call("topc", Data.YARN.size(), Data.YARN, 60)
+				pick.call("bottom", Data.OPT["bottom"].size())
+				pick.call("botc", Data.YARN.size(), Data.YARN, 60)
+				pick.call("shoes", Data.YARN.size(), Data.YARN, 60)
+		"doplnky":
+			if kk:
+				pick.call("kkhat", KKDoll.names("kkhat"))
+				pick.call("kkhattint", KKDoll.TINT.size(), KKDoll.TINT, 60)
+			else:
+				pick.call("hat", Data.OPT["hat"].size())
+				pick.call("hatc", Data.YARN.size(), Data.YARN, 60)
+				pick.call("extra", Data.OPT["extra"].size())
+				pick.call("ears", Data.OPT["ears"].size())
+				pick.call("horns", Data.OPT["horns"].size())
+				pick.call("tail", Data.OPT["tail"].size())
+				pick.call("wings", Data.OPT["wings"].size())
+		"telo":
+			if kk:
+				pick.call("kkarms", KKDoll.names("kkarms"))
+				pick.call("kklegs", KKDoll.names("kklegs"))
+			else:
+				pick.call("skin", Data.SKIN.size(), Data.SKIN, 60)
+				pick.call("figure", Data.OPT["figure"].size())
+				pick.call("headshape", Data.OPT["headshape"].size())
+		"nastroje":
+			_opt_row("headw", 5, h, [], 72)
+			_opt_row("headh", 5, h, [], 72)
+			_opt_row("headd", 3, h, [], 72)
+			_region_tools(h)
+			_tune_rows(h)
+
 func _new_doll(h: Dictionary) -> Node3D:
 	return KKDoll.new() if str(h.get("style", "")) == "kk" else Doll.new()
 
@@ -965,6 +1068,27 @@ func _set_row(kind_on: String, kind_off: String, title: String, on: bool, vol: f
 	var sl := HSlider.new(); sl.min_value = 0; sl.max_value = 1; sl.step = 0.05; sl.value = vol
 	sl.custom_minimum_size = Vector2(0, 40); sl.value_changed.connect(setvol); col.add_child(sl)
 
+## Holčičí nebo klučičí vzhled. Poprvé se vybírá velkými obrázky bez textu.
+func _set_theme(t: String) -> void:
+	var fresh: bool = S["hero"] == Data.default_state()["hero"]
+	S["theme"] = t
+	if fresh:
+		var p: Dictionary = Data.default_state()["hero"].duplicate()
+		p.merge(Data.PRESETS[3 if t == "boy" else 0], true)
+		S["hero"] = p
+		if t == "boy" and int(S["room"].get("wallp", 2)) == 2:
+			S["room"]["wall"] = 1; S["room"]["wallp"] = 8; S["room"]["floor"] = 0
+	Data.save_state(S)
+	get_tree().reload_current_scene()
+
+func _theme_picker() -> void:
+	var ov := ColorRect.new(); ov.color = Color(1, 1, 1, 0.92); ov.set_anchors_preset(Control.PRESET_FULL_RECT); add_child(ov)
+	var hb := HBoxContainer.new(); hb.set_anchors_preset(Control.PRESET_CENTER); hb.add_theme_constant_override("separation", 80)
+	hb.position = Vector2(-300, -150); ov.add_child(hb)
+	for t in [["girl", 0], ["boy", 3]]:
+		var b := UIcon.new("", _opt_tex("preset", t[1]), Color(0, 0, 0, 0), 260); b.round_btn = true
+		b.tapped.connect(func(): _set_theme(t[0])); hb.add_child(b)
+
 func _settings_tray() -> void:
 	var t := _label("Nastavení"); t.add_theme_font_size_override("font_size", 34)
 	_set_row("music", "mute", "Hudba", Snd.music_on, float(S.get("mvol", 0.7)),
@@ -973,6 +1097,12 @@ func _settings_tray() -> void:
 	_set_row("sound", "nosound", "Zvuky", Snd.sfx_on, float(S.get("svol", 0.9)),
 		func(): Snd.sfx_on = not Snd.sfx_on; S["sfx"] = Snd.sfx_on; Data.save_state(S); return Snd.sfx_on,
 		func(v: float): S["svol"] = v; Snd.set_volumes(float(S.get("mvol", 0.7)), v); Data.save_state(S); Snd.play("pop", 0.0))
+	_gap()
+	var vl := _label("Vzhled"); vl.add_theme_font_size_override("font_size", 26)
+	var th := _flow()
+	for tt in [["girl", 0], ["boy", 3]]:
+		var tb := _icon("", func(): _set_theme(tt[0]), 96, th, _opt_tex("preset", tt[1]))
+		tb.selected = Data.theme == tt[0]
 	_gap()
 	var a := _label("O aplikaci"); a.add_theme_font_size_override("font_size", 30)
 	_label("Můj Pokojíček\nverze %s · obsah %d" % ["0.7", updater.CONTENT], true)
@@ -1027,53 +1157,7 @@ func _build_tray() -> void:
 		return
 	match tab:
 		"hero":
-			var h: Dictionary = S["hero"]
-			var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 10); tray.add_child(top)
-			_icon("dice", func(): _random_hero(); _refresh_stage(); _build_tray(), 96, top)
-			var le := LineEdit.new(); le.text = S["name"]; le.max_length = 14; le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			le.custom_minimum_size.y = 80
-			le.text_changed.connect(func(t): S["name"] = t if t != "" else "Já"; Data.save_state(S))
-			top.add_child(le)
-			_gap()
-			# styl postavičky: panenka z kódu, nebo složená z dílů (KayKit)
-			var sf := _flow()
-			for st in [["", "style_doll"], ["kk", "style_kk"]]:
-				var sb := _icon("", func():
-					h["style"] = st[0]; Data.save_state(S); _refresh_stage(); _build_tray(), 96, sf, _opt_tex(st[1], 0))
-				sb.selected = str(h.get("style", "")) == st[0]
-			_gap()
-			if str(h.get("style", "")) == "kk":
-				for key in ["kkhead", "kkhat", "kkbody", "kkarms", "kklegs", "kkcape"]:
-					_opt_row(key, KKDoll.names(key), h)
-				_opt_row("kktint", KKDoll.TINT.size(), h, KKDoll.TINT, 56)
-				_opt_row("kkhattint", KKDoll.TINT.size(), h, KKDoll.TINT, 56)
-				return
-			_opt_row("headshape", Data.OPT["headshape"].size(), h)
-			_opt_row("headw", 5, h, [], 72)
-			_opt_row("headh", 5, h, [], 72)
-			_opt_row("headd", 3, h, [], 72)
-			_region_tools(h)
-			_opt_row("skin", Data.SKIN.size(), h, Data.SKIN, 56)
-			_opt_row("eyes", Data.OPT["eyes"].size(), h)
-			_opt_row("brows", Data.OPT["brows"].size(), h)
-			_opt_row("nose", Data.OPT["nose"].size(), h)
-			_opt_row("mouth", Data.OPT["mouth"].size(), h)
-			_opt_row("extra", Data.OPT["extra"].size(), h)
-			_tune_rows(h)
-			_opt_row("hair", Data.OPT["hair"].size(), h)
-			_opt_row("hairc", Data.HAIRC.size(), h, Data.HAIRC, 56)
-			_opt_row("ears", Data.OPT["ears"].size(), h)
-			_opt_row("horns", Data.OPT["horns"].size(), h)
-			_opt_row("hat", Data.OPT["hat"].size(), h)
-			_opt_row("hatc", Data.YARN.size(), h, Data.YARN, 56)
-			_opt_row("figure", Data.OPT["figure"].size(), h)
-			_opt_row("top", Data.OPT["top"].size(), h)
-			_opt_row("topc", Data.YARN.size(), h, Data.YARN, 56)
-			_opt_row("bottom", Data.OPT["bottom"].size(), h)
-			_opt_row("botc", Data.YARN.size(), h, Data.YARN, 56)
-			_opt_row("shoes", Data.YARN.size(), h, Data.YARN, 56)
-			_opt_row("tail", Data.OPT["tail"].size(), h)
-			_opt_row("wings", Data.OPT["wings"].size(), h)
+			_hero_tray(S["hero"])
 		"room":
 			var rr: Dictionary = S["room"]
 			if chest_open >= 0 and not net.is_client and chest_open < rr["items"].size() and str(rr["items"][chest_open][0]) == "kufr":
