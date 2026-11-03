@@ -13,7 +13,7 @@ const TEX_W := 1024
 const TEX_H := 512
 const PPR := 380.0      # pixelů na radián v texturách očí a pusy
 
-const EYES := ["velke", "rasy", "modre", "zelene", "hvezdicky", "lesklé", "anime", "anime_modre", "radost", "mrk", "ospale", "tecky", "srdicka", "kocici", "krizky"]
+const EYES := ["jednoduche", "tecky", "lesklé", "velke", "rasy", "modre", "zelene", "oblicky", "radost", "mrk", "ospale", "anime", "hvezdicky", "srdicka", "kocici", "krizky"]
 const NOSES := ["", "tecka", "knoflik", "trojuhelnik", "srdicko", "cenich"]
 const MOUTHS := ["usmev", "smich", "kocici", "o", "zoubek", "jazyk", "zuby", "pusinka"]
 const BROWS := ["", "obycejne", "zvednute", "zamracene", "smutne"]
@@ -159,8 +159,8 @@ static func _stamp(img: Image, name: String, lon: float, el: float, size_rad: fl
 ## Kde leží oči (výška na hlavě) a jak daleko od sebe.
 static func eye_layout(f: Dictionary) -> Vector3:
 	var ey := -0.1 + 0.1 * (float(f.get("eyey", 0.5)) - 0.5)
-	var gap := 0.36 + 0.08 * (float(f.get("eyegap", 0.5)) - 0.5)
-	var esz := 0.5 * (0.85 + 0.3 * float(f.get("eyesize", 0.5)))
+	var gap := 0.33 + 0.08 * (float(f.get("eyegap", 0.5)) - 0.5)
+	var esz := 0.36 * (0.85 + 0.3 * float(f.get("eyesize", 0.5)))
 	return Vector3(ey, gap, esz)
 
 ## Textura hlavy: kůže, tvářenky, pihy, fousky (oči a pusa jsou zvlášť, aby mohly mrkat a mluvit).
@@ -168,7 +168,7 @@ static func face_texture(f: Dictionary, skin: Color) -> ImageTexture:
 	var img := Image.create(TEX_W, TEX_H, false, Image.FORMAT_RGBA8)
 	img.fill(skin)
 	var L := eye_layout(f); var ey := L.x
-	if f.get("blush", true): for s in [-1.0, 1.0]: _stamp(img, "x_tvarenky", 0.55 * s, ey - 0.3, 0.42)
+	if f.get("blush", true): for s in [-1.0, 1.0]: _stamp(img, "x_tvarenky", 0.52 * s, ey - 0.26, 0.3)
 	if f.get("freckles", false): for s in [-1.0, 1.0]: _stamp(img, "x_pihy", 0.5 * s, ey - 0.25, 0.24)
 	if f.get("whiskers", false): for s in [-1.0, 1.0]: _stamp(img, "x_fousky", 0.5 * s, ey - 0.34, 0.3, s > 0)
 	img.generate_mipmaps()
@@ -239,7 +239,7 @@ static func eye_tex(f: Dictionary, open := true) -> ImageTexture:
 	for s in [-1.0, 1.0]:
 		var nm := eyes
 		if eyes == "mrk": nm = "mrk" if s > 0 else "rasy"
-		if not open and nm in ["velke", "rasy", "modre", "zelene", "hvezdicky", "lesklé", "anime", "anime_modre", "tecky", "kocici"]: nm = "zavrene"
+		if not open and nm in ["jednoduche", "velke", "rasy", "modre", "zelene", "hvezdicky", "lesklé", "anime", "anime_modre", "tecky", "kocici"]: nm = "oblicky" if nm in ["jednoduche", "tecky", "lesklé"] else "zavrene"
 		_stamp_patch(img, r, "eye_" + nm, L.y * s, L.x, L.z, s > 0)
 		if brows != "": _stamp_patch(img, r, "brow_" + brows, L.y * s * 1.05, L.x + L.z * 0.72, L.z * 0.8, s > 0)
 	img.generate_mipmaps()
@@ -256,7 +256,7 @@ static func mouth_tex(f: Dictionary, mouth := "") -> ImageTexture:
 	var L := eye_layout(f); var snout := float(f.get("snout", 0.0))
 	var np := str(f.get("nosepaint", ""))
 	if np != "": _stamp_patch(img, r, "nose_" + np, 0.0, L.x - 0.22 - 0.02 * snout, 0.13 + 0.07 * snout)
-	_stamp_patch(img, r, "mouth_" + mouth, 0.0, L.x - 0.4 - 0.06 * snout, 0.3 + 0.06 * snout)
+	_stamp_patch(img, r, "mouth_" + mouth, 0.0, L.x - 0.36 - 0.06 * snout, 0.22 + 0.06 * snout)
 	img.generate_mipmaps()
 	var t := ImageTexture.create_from_image(img)
 	_patch_tex[key] = t
@@ -305,10 +305,10 @@ static func hair_texture(col: Color) -> ImageTexture:
 			var u := float(x) / w * locks
 			var fr: float = u - floor(u)
 			var groove := pow(absf(fr - 0.5) * 2.0, 6.0)        # tmavší rýha mezi prameny
-			var c := col.darkened(0.22 * groove + 0.08 * (1.0 - v))
+			var c := col.darkened(0.14 * groove + 0.06 * (1.0 - v))
 			# lesklý proužek: v každém pramenu kousek světla
 			var band := exp(-pow((v - 0.62 - 0.05 * sin(u * 0.9)) / 0.05, 2.0)) * (1.0 - groove) * smoothstep(0.1, 0.35, fr) * smoothstep(0.9, 0.65, fr)
-			c = c.lerp(col.lightened(0.55), clampf(band * 0.85, 0.0, 1.0))
+			c = c.lerp(col.lightened(0.3), clampf(band * 0.35, 0.0, 1.0))
 			img.set_pixel(x, y, c)
 	img.generate_mipmaps()
 	var t := ImageTexture.create_from_image(img)
@@ -395,7 +395,7 @@ static func build(parent: Node3D, f: Dictionary, skin: Color, hair_col: Color) -
 	var mat := StandardMaterial3D.new()
 	mat.albedo_texture = face_texture(f, skin)
 	mat.roughness = 0.85; mat.metallic_specular = 0.2
-	mat.rim_enabled = true; mat.rim = 0.18; mat.rim_tint = 0.7
+	mat.rim_enabled = true; mat.rim = 0.08; mat.rim_tint = 0.8
 	mi.material_override = mat
 	var em := MeshInstance3D.new(); em.mesh = patch_mesh(f, eye_rect(f)); em.material_override = _patch_mat(eye_tex(f, true)); root.add_child(em)
 	var mm := MeshInstance3D.new(); mm.mesh = patch_mesh(f, mouth_rect(f)); mm.material_override = _patch_mat(mouth_tex(f)); root.add_child(mm)
@@ -404,7 +404,7 @@ static func build(parent: Node3D, f: Dictionary, skin: Color, hair_col: Color) -
 	if hs > 0:
 		var hm := MeshInstance3D.new(); hm.mesh = hair_mesh(hs, f); root.add_child(hm)
 		var hmat := StandardMaterial3D.new(); hmat.albedo_texture = hair_texture(hair_col); hmat.roughness = 0.45
-		hmat.rim_enabled = true; hmat.rim = 0.3; hmat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		hmat.rim_enabled = true; hmat.rim = 0.1; hmat.roughness = 0.65; hmat.cull_mode = BaseMaterial3D.CULL_DISABLED
 		hm.material_override = hmat
 		hair_extras(root, hs, f, hair_col)
 	return root

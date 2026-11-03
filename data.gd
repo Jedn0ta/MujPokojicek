@@ -19,16 +19,16 @@ static func apply_theme(t: String) -> void:
 
 ## Hotoví kamarádi: z nich si dítě vybere a pak jen doladí.
 const PRESETS := [
-	{"hair": 3, "hairc": 3, "eyes": 6, "brows": 0, "nose": 1, "mouth": 0, "ears": 0, "top": 2, "topc": 0, "bottom": 1, "botc": 6, "hat": 2, "hatc": 3, "skin": 0, "extra": 0, "figure": 1, "shoes": 0, "headshape": 1},
-	{"hair": 4, "hairc": 2, "eyes": 7, "brows": 0, "nose": 1, "mouth": 7, "ears": 0, "top": 1, "topc": 3, "bottom": 1, "botc": 6, "hat": 0, "skin": 0, "extra": 1, "figure": 1, "shoes": 3, "headshape": 0},
-	{"hair": 5, "hairc": 0, "eyes": 3, "brows": 0, "nose": 1, "mouth": 1, "ears": 0, "top": 0, "topc": 1, "bottom": 0, "botc": 4, "hat": 0, "skin": 2, "extra": 0, "figure": 1, "shoes": 7, "headshape": 2},
-	{"hair": 1, "hairc": 1, "eyes": 0, "brows": 1, "nose": 1, "mouth": 1, "ears": 0, "top": 0, "topc": 4, "bottom": 2, "botc": 7, "hat": 3, "hatc": 4, "skin": 1, "extra": 0, "figure": 1, "shoes": 5, "headshape": 3},
-	{"hair": 7, "hairc": 5, "eyes": 5, "brows": 1, "nose": 2, "mouth": 0, "ears": 0, "top": 1, "topc": 1, "bottom": 0, "botc": 7, "hat": 0, "skin": 3, "extra": 2, "figure": 1, "shoes": 4, "headshape": 0},
-	{"hair": 2, "hairc": 2, "eyes": 4, "brows": 0, "nose": 1, "mouth": 4, "ears": 0, "top": 0, "topc": 5, "bottom": 0, "botc": 4, "hat": 4, "hatc": 2, "skin": 0, "extra": 1, "figure": 0, "shoes": 7, "headshape": 5},
-	{"hair": 0, "eyes": 13, "brows": 0, "nose": 3, "mouth": 2, "ears": 3, "tail": 2, "skin": 6, "top": 2, "topc": 6, "bottom": 1, "botc": 0, "hat": 2, "hatc": 0, "extra": 4, "figure": 0, "shoes": 0, "headshape": 1},
-	{"hair": 0, "eyes": 5, "brows": 0, "nose": 3, "mouth": 4, "ears": 1, "horns": 1, "tail": 4, "skin": 7, "top": 0, "topc": 2, "bottom": 2, "botc": 4, "hat": 0, "extra": 0, "figure": 3, "shoes": 2, "headshape": 3},
-	{"hair": 0, "eyes": 11, "brows": 0, "nose": 5, "mouth": 0, "ears": 2, "tail": 3, "skin": 2, "top": 1, "topc": 5, "bottom": 0, "botc": 4, "hat": 0, "extra": 0, "figure": 3, "shoes": 7, "headshape": 1},
-	{"hair": 0, "eyes": 1, "brows": 0, "nose": 4, "mouth": 5, "ears": 4, "skin": 9, "top": 0, "topc": 0, "bottom": 2, "botc": 3, "hat": 0, "extra": 0, "figure": 0, "shoes": 0, "headshape": 5},
+	{"hair": 3, "hairc": 3, "eyes": 0, "brows": 0, "nose": 1, "mouth": 0, "ears": 0, "top": 2, "topc": 0, "bottom": 1, "botc": 6, "hat": 2, "hatc": 3, "skin": 0, "extra": 0, "figure": 1, "shoes": 0, "headshape": 1},
+	{"hair": 4, "hairc": 2, "eyes": 4, "brows": 0, "nose": 1, "mouth": 7, "ears": 0, "top": 1, "topc": 3, "bottom": 1, "botc": 6, "hat": 0, "skin": 0, "extra": 1, "figure": 1, "shoes": 3, "headshape": 0},
+	{"hair": 5, "hairc": 0, "eyes": 0, "brows": 0, "nose": 1, "mouth": 1, "ears": 0, "top": 0, "topc": 1, "bottom": 0, "botc": 4, "hat": 0, "skin": 2, "extra": 0, "figure": 1, "shoes": 7, "headshape": 2},
+	{"hair": 1, "hairc": 1, "eyes": 2, "brows": 1, "nose": 1, "mouth": 1, "ears": 0, "top": 0, "topc": 4, "bottom": 2, "botc": 7, "hat": 3, "hatc": 4, "skin": 1, "extra": 0, "figure": 1, "shoes": 5, "headshape": 3},
+	{"hair": 7, "hairc": 5, "eyes": 1, "brows": 1, "nose": 2, "mouth": 0, "ears": 0, "top": 1, "topc": 1, "bottom": 0, "botc": 7, "hat": 0, "skin": 3, "extra": 2, "figure": 1, "shoes": 4, "headshape": 0},
+	{"hair": 2, "hairc": 2, "eyes": 0, "brows": 0, "nose": 1, "mouth": 4, "ears": 0, "top": 0, "topc": 5, "bottom": 0, "botc": 4, "hat": 4, "hatc": 2, "skin": 0, "extra": 1, "figure": 0, "shoes": 7, "headshape": 5},
+	{"hair": 0, "eyes": 14, "brows": 0, "nose": 3, "mouth": 2, "ears": 3, "tail": 2, "skin": 6, "top": 2, "topc": 6, "bottom": 1, "botc": 0, "hat": 2, "hatc": 0, "extra": 4, "figure": 0, "shoes": 0, "headshape": 1},
+	{"hair": 0, "eyes": 2, "brows": 0, "nose": 3, "mouth": 4, "ears": 1, "horns": 1, "tail": 4, "skin": 7, "top": 0, "topc": 2, "bottom": 2, "botc": 4, "hat": 0, "extra": 0, "figure": 3, "shoes": 2, "headshape": 3},
+	{"hair": 0, "eyes": 1, "brows": 0, "nose": 5, "mouth": 0, "ears": 2, "tail": 3, "skin": 2, "top": 1, "topc": 5, "bottom": 0, "botc": 4, "hat": 0, "extra": 0, "figure": 3, "shoes": 7, "headshape": 1},
+	{"hair": 0, "eyes": 0, "brows": 0, "nose": 4, "mouth": 5, "ears": 4, "skin": 9, "top": 0, "topc": 0, "bottom": 2, "botc": 3, "hat": 0, "extra": 0, "figure": 0, "shoes": 0, "headshape": 5},
 	{"style": "kk", "kkhead": 0, "kkhat": 1, "kkbody": 0, "kkarms": 0, "kklegs": 0, "kkcape": 1},
 	{"style": "kk", "kkhead": 1, "kkhat": 2, "kkbody": 1, "kkarms": 1, "kklegs": 1, "kkcape": 2},
 	{"style": "kk", "kkhead": 2, "kkhat": 3, "kkbody": 2, "kkarms": 2, "kklegs": 2, "kkcape": 3},
@@ -40,7 +40,7 @@ const GIRL_ORDER := [0, 1, 2, 6, 9, 11, 3, 4, 5, 7, 8, 10, 12, 13, 14, 15]
 const BOY_ORDER := [3, 4, 5, 10, 7, 12, 15, 13, 14, 8, 0, 1, 2, 6, 9, 11]
 
 const SKIN := [Color("ffdcc2"), Color("eab894"), Color("b98058"), Color("7d5236"), Color("a9dcb0"), Color("b4ccff"), Color("ffc2db"), Color("9bc48a"), Color("b9a2e6"), Color("f2f0e6"), Color("ff7a6e"), Color("8a98a8"), Color("f8f8ff")]
-const YARN := [Color("ff8ab3"), Color("5cc6b8"), Color("ffc93c"), Color("9b7cff"), Color("6fa8ff"), Color("ff7a59"), Color("f6f2ff"), Color("4a3a6a")]
+const YARN := [Color("e3909f"), Color("7cbcae"), Color("eec25e"), Color("a596d4"), Color("6f9cd2"), Color("df8565"), Color("f3eee4"), Color("41496a")]
 const HAIRC := [Color("4a3020"), Color("9a6634"), Color("f2c14e"), Color("d8532c"), Color("7b5be0"), Color("2a2230"), Color("ff9ec4")]
 const WALL := [Color("ffe8c2"), Color("d6f0ff"), Color("e8ddff"), Color("d9f5d0"), Color("ffd6e0"), Color("fff6a8"), Color("ffffff"), Color("c9e9ff")]
 const FLOOR := [Color("c98b55"), Color("e7c9a0"), Color("a7b1bb"), Color("8fc79a"), Color("b99ae0"), Color("ff9ec4"), Color("8fc4ff"), Color("f6f2ff")]
@@ -55,7 +55,7 @@ const OPT := {
 	"headw": ["1", "2", "3", "4", "5"],
 	"headh": ["1", "2", "3", "4", "5"],
 	"headd": ["1", "2", "3"],
-	"eyes": ["velké", "s řasami", "modré", "zelené", "hvězdičky", "lesklé", "princezna", "modrá princezna", "radost", "mrk", "ospalé", "tečky", "srdíčka", "kočičí", "křížky"],
+	"eyes": ["jednoduché", "tečky", "lesklé", "velké", "s řasami", "modré", "zelené", "obloučky", "radost", "mrk", "ospalé", "princezna", "hvězdičky", "srdíčka", "kočičí", "křížky"],
 	"brows": ["žádné", "obyčejné", "zvednuté", "zamračené", "smutné"],
 	"nose": ["žádný", "tečka", "knoflík", "trojúhelníček", "srdíčko", "čenich"],
 	"mouth": ["úsměv", "smích", "kočičí", "Ó", "zoubek", "jazyk", "zuby", "pusinka"],
@@ -74,7 +74,7 @@ const SAVE_PATH := "user://pokojicek_v2.json"
 static func default_state() -> Dictionary:
 	return {
 		"name": "Já",
-		"hero": {"v": 2, "figure": 1, "headshape": 0, "headw": 2, "headh": 2, "headd": 1, "extra": 0, "skin": 0, "eyes": 0, "brows": 1, "mouth": 0, "nose": 1, "ears": 0, "hair": 1, "hairc": 1, "top": 0, "topc": 0,
+		"hero": {"v": 2, "figure": 1, "headshape": 0, "headw": 2, "headh": 2, "headd": 1, "extra": 0, "skin": 0, "eyes": 0, "brows": 0, "mouth": 0, "nose": 1, "ears": 0, "hair": 1, "hairc": 1, "top": 0, "topc": 0,
 			"bottom": 0, "botc": 4, "shoes": 7, "hat": 0, "hatc": 2},
 		"weather": 0,
 		"room": {"wall": 1, "wallp": 2, "floor": 0, "floorp": 1, "items": [["postel1", -1.85, -1.1, 0], ["koberec2", 0.0, 0.4, 0], ["lampa1", -2.15, 0.2, 0], ["kaktus3", 2.1, -1.65, 0], ["medvidek", 1.3, 0.9, 0], ["hernistul", 1.15, -0.6, 90], ["mic", -0.6, 1.2, 0], ["skrin4", -0.6, -1.7, 0], ["obraz2", 1.5, -1.95, 0], ["kreslo2", 2.0, 1.1, 270], ["kostky", 0.6, 1.4, 0]]},
