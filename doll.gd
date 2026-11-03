@@ -93,6 +93,7 @@ static func grow(profile: Array, by: float, y_from := -9.0, y_to := 9.0) -> Arra
 
 func build(h: Dictionary) -> void:
 	for c in get_children(): c.free()
+	Yarn.blob_shadow(self, 0.3)
 	pose = Node3D.new(); add_child(pose)
 	legs.clear(); arms.clear()
 	for s in [-1, 1]:
@@ -151,7 +152,12 @@ func build(h: Dictionary) -> void:
 		Yarn.cyl(pose, Vector3(0, 0.54, 0), 0.075, 0.09, 0.05, tc.lightened(0.2))
 	for i in 2:
 		Yarn.lathe(arms[i], grow(ARM, 0.012, -0.17 if top == 1 else -0.08, 0.02), Vector3.ZERO, tc, true, Vector3.ZERO, 1.0, 20)
-	# hlava
+	# nová roztomilá hlava (modelovaná z hladkých tvarů, malovaný obličej)
+	if int(h.get("v", 2)) >= 2:
+		_cute_head(h, sk, hc, hatc, hat)
+		_apply_pose()
+		return
+	# hlava (původní)
 	var head := MeshInstance3D.new(); head.mesh = hs.mesh(); head.material_override = Yarn.mat(sk); pose.add_child(head)
 	head.set_meta("noscale", true); head_mi = head
 	var crown := hs.top()                 # temeno
@@ -343,6 +349,113 @@ func build(h: Dictionary) -> void:
 				Yarn.cyl(cr, Vector3(cos(a) * 0.12, 0.09, sin(a) * 0.12), 0.0, 0.035, 0.07, Color("ffc93c"), false)
 				Yarn.ball(cr, Vector3(cos(a) * 0.13, 0.035, sin(a) * 0.13), Vector3(0.025, 0.025, 0.02), [Color("ff5d73"), Color("6fa8ff"), Color("5fd16a")][k % 3], false)
 	_apply_pose()
+
+const CUTE_Y := 0.76
+const EARS2 := ["lidské", "žádné", "medvídek", "kočička", "zajíček", "pejsek", "myška", "elfí"]
+const NOSE2 := ["žádný", "knoflík", "čumáček", "velký čumáček"]
+const EXTRA2 := ["nic", "pihy", "brýle", "brýle a pihy", "fousky"]
+
+## Parametry pro CuteHead z voleb postavičky.
+static func cute_params(h: Dictionary) -> Dictionary:
+	var f: Dictionary = (CuteHead.SHAPES[clampi(int(h.get("headshape", 0)), 0, CuteHead.SHAPES.size() - 1)] as Dictionary).duplicate()
+	f["w"] = clampf(float(f.get("w", 0.5)) + 0.18 * (int(h.get("headw", 2)) - 2), 0.0, 1.0)
+	f["h"] = clampf(float(f.get("h", 0.5)) + 0.18 * (int(h.get("headh", 2)) - 2), 0.0, 1.0)
+	f["eyes"] = CuteHead.EYES[clampi(int(h.get("eyes", 0)), 0, CuteHead.EYES.size() - 1)]
+	f["mouth"] = CuteHead.MOUTHS[clampi(int(h.get("mouth", 0)), 0, CuteHead.MOUTHS.size() - 1)]
+	f["brows"] = CuteHead.BROWS[clampi(int(h.get("brows", 0)), 0, CuteHead.BROWS.size() - 1)]
+	f["hair"] = clampi(int(h.get("hair", 1)), 0, CuteHead.HAIRS.size() - 1)
+	var nose := int(h.get("nose", 0))
+	f["nose"] = 1.0 if nose == 1 else 0.0
+	f["snout"] = [0.0, 0.0, 0.45, 0.85][clampi(nose, 0, 3)]
+	var ex := int(h.get("extra", 0))
+	f["freckles"] = ex in [1, 3]
+	f["whiskers"] = ex == 4
+	return f
+
+func _cute_head(h: Dictionary, sk: Color, hc: Color, hatc: Color, hat: int) -> void:
+	var f := cute_params(h)
+	var hair := int(f["hair"])
+	if hat in [1, 3] and hair in [6, 7]: f["hair"] = 1      # drdol a chumáčky se pod čepici nevejdou
+	var root := Node3D.new(); root.position = Vector3(0, CUTE_Y, 0); pose.add_child(root)
+	CuteHead.build(root, f, sk, hc)
+	var top := CuteHead.surface(0.0, PI / 2.0 - 0.01, f).y
+	var hw := CuteHead.surface(PI / 2.0, 0.0, f).x
+	var crown := CUTE_Y + top
+	head_k = Vector2(hw / 0.262, top / 0.25)
+	# uši
+	var pink := Color("ffb3c6")
+	match int(h.get("ears", 0)):
+		0:
+			for s in [-1.0, 1.0]:
+				var e := CuteHead.surface(1.57 * s, -0.08, f)
+				Yarn.ball(root, e, Vector3(0.05, 0.085, 0.06), sk, false)
+		2:
+			for s in [-1.0, 1.0]:
+				var e := CuteHead.surface(0.85 * s, 0.8, f) * 1.02
+				Yarn.ball(root, e, Vector3(0.14, 0.14, 0.07), sk, false, Vector3(0, -0.5 * s, -0.5 * s))
+				Yarn.ball(root, e + Vector3(0, 0, 0.02), Vector3(0.08, 0.08, 0.04), pink, false, Vector3(0, -0.5 * s, -0.5 * s))
+		3:
+			for s in [-1.0, 1.0]:
+				var e := CuteHead.surface(0.62 * s, 0.86, f)
+				var c1 := Yarn.cyl(root, e + Vector3(0, 0.05, 0), 0.0, 0.08, 0.16, sk, false, Vector3(0, 0, -0.35 * s)); c1.scale = Vector3(1, 1, 0.45)
+				var c2 := Yarn.cyl(root, e + Vector3(0, 0.045, 0.02), 0.0, 0.05, 0.11, pink, false, Vector3(0, 0, -0.35 * s)); c2.scale = Vector3(1, 1, 0.3)
+		4:
+			for s in [-1.0, 1.0]:
+				var e := CuteHead.surface(0.32 * s, 1.15, f)
+				Yarn.ball(root, e + Vector3(0.02 * s, 0.15, -0.02), Vector3(0.09, 0.34, 0.06), sk, false, Vector3(0, 0, -0.15 * s))
+				Yarn.ball(root, e + Vector3(0.02 * s, 0.15, 0.0), Vector3(0.05, 0.25, 0.03), pink, false, Vector3(0, 0, -0.15 * s))
+		5:
+			for s in [-1.0, 1.0]:
+				var e := CuteHead.surface(1.45 * s, 0.35, f)
+				Yarn.ball(root, e + Vector3(0.03 * s, -0.08, -0.02), Vector3(0.09, 0.24, 0.13), sk.darkened(0.2), false, Vector3(0, 0, 0.3 * s))
+		6:
+			for s in [-1.0, 1.0]:
+				var e := CuteHead.surface(0.95 * s, 0.6, f)
+				Yarn.ball(root, e * 1.04, Vector3(0.18, 0.18, 0.05), sk, false, Vector3(0, -0.8 * s, -0.4 * s))
+				Yarn.ball(root, e * 1.06, Vector3(0.11, 0.11, 0.03), pink, false, Vector3(0, -0.8 * s, -0.4 * s))
+		7:
+			for s in [-1.0, 1.0]:
+				var e := CuteHead.surface(1.57 * s, 0.0, f)
+				Yarn.cyl(root, e + Vector3(0.05 * s, 0.03, 0), 0.0, 0.05, 0.17, sk, false, Vector3(0, 0, -1.2 * s))
+	# brýle
+	if int(h.get("extra", 0)) in [2, 3]:
+		var ey := -0.1; var gap := 0.36
+		for s in [-1.0, 1.0]:
+			var e := CuteHead.surface(gap * s, ey, f)
+			var ring := MeshInstance3D.new(); var tm := TorusMesh.new(); tm.inner_radius = 0.058; tm.outer_radius = 0.07; tm.rings = 24; tm.ring_segments = 6
+			ring.mesh = tm; ring.position = e + e.normalized() * 0.02; ring.rotation = Vector3(PI / 2, gap * s, 0)
+			ring.material_override = Yarn.mat(Color("3a2234")); root.add_child(ring)
+		var mid := CuteHead.surface(0.0, ey + 0.02, f)
+		Yarn.box(root, mid + Vector3(0, 0, 0.025), Vector3(0.09, 0.015, 0.015), Color("3a2234"))
+	# čepice
+	match hat:
+		1:
+			var cap := MeshInstance3D.new(); cap.mesh = CuteHead.cap_mesh(0.32, 0.07, f); cap.material_override = _two_sided(hatc); root.add_child(cap)
+			Yarn.ball(root, Vector3(0, top + 0.08, 0), Vector3(0.13, 0.13, 0.13), Color("f6f2ff"))
+		2:
+			var b := CuteHead.surface(0.75, 0.95, f) * 1.05
+			for s in [-1.0, 1.0]: Yarn.ball(root, b + Vector3(0.055 * s, 0, 0.01), Vector3(0.1, 0.075, 0.05), hatc, true, Vector3(0, 0, 0.3 * s))
+			Yarn.ball(root, b + Vector3(0, 0, 0.02), Vector3(0.045, 0.045, 0.045), hatc.darkened(0.15))
+		3:
+			var cap3 := MeshInstance3D.new(); cap3.mesh = CuteHead.cap_mesh(0.4, 0.055, f); cap3.material_override = _two_sided(hatc); root.add_child(cap3)
+			var front := CuteHead.surface(0.0, 0.42, f)
+			var vis := Yarn.ball(root, front + Vector3(0, -0.005, 0.07), Vector3(0.3, 0.035, 0.2), hatc.darkened(0.1), false)
+			vis.rotation.x = -0.1
+			Yarn.ball(root, Vector3(0, top + 0.055, 0), Vector3(0.05, 0.03, 0.05), hatc.lightened(0.3))
+		4:
+			var cr := Node3D.new(); cr.position = Vector3(0, top - 0.03, -0.01); root.add_child(cr)
+			Yarn.cyl(cr, Vector3(0, 0.03, 0), 0.13, 0.13, 0.06, Color("ffc93c"))
+			for k in 5:
+				var a := k * TAU / 5.0
+				Yarn.cyl(cr, Vector3(cos(a) * 0.12, 0.09, sin(a) * 0.12), 0.0, 0.035, 0.07, Color("ffc93c"), false)
+				Yarn.ball(cr, Vector3(cos(a) * 0.13, 0.035, sin(a) * 0.13), Vector3(0.025, 0.025, 0.02), [Color("ff5d73"), Color("6fa8ff"), Color("5fd16a")][k % 3], false)
+	_horns(int(h.get("horns", 0)), crown, hw)
+	_tail(int(h.get("tail", 0)), sk)
+	_wings(int(h.get("wings", 0)))
+
+static func _two_sided(c: Color) -> StandardMaterial3D:
+	var m: StandardMaterial3D = Yarn.mat(c).duplicate(); m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return m
 
 func _nose(kind: int, sk: Color) -> void:
 	match kind:

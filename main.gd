@@ -173,7 +173,7 @@ func _build_world(vp: SubViewport) -> void:
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	var we := WorldEnvironment.new(); we.environment = env; vp.add_child(we)
 	sun = DirectionalLight3D.new(); sun.rotation_degrees = Vector3(-60, 25, 0)
-	sun.light_energy = 0.25; sun.shadow_enabled = true; vp.add_child(sun)
+	sun.light_energy = 0.25; sun.shadow_enabled = false; vp.add_child(sun)
 	cam = Camera3D.new(); vp.add_child(cam)
 	room = Room.new(); vp.add_child(room)
 	pedestal = Node3D.new(); vp.add_child(pedestal)
@@ -447,6 +447,8 @@ func _refresh_stage() -> void:
 	cam_btns.visible = not window_view
 	if tab == "hero":
 		room.visible = false; pedestal.visible = true; frame.visible = false; outside.restore_room()
+		# portrétní světlo: slabší slunce, víc měkkého světla, ať obličej není přepálený
+		sun.light_energy = 0.22; env.ambient_light_energy = 0.5
 		var d := _new_doll(S["hero"]); dolls.add_child(d); d.build(S["hero"]); d.rotation.y = spin
 		return
 	room.visible = true; pedestal.visible = false
@@ -1041,9 +1043,6 @@ func _hero_tray(h: Dictionary) -> void:
 		"nastroje":
 			_opt_row("headw", 5, h, [], 72)
 			_opt_row("headh", 5, h, [], 72)
-			_opt_row("headd", 3, h, [], 72)
-			_region_tools(h)
-			_tune_rows(h)
 
 func _new_doll(h: Dictionary) -> Node3D:
 	return KKDoll.new() if str(h.get("style", "")) == "kk" else Doll.new()

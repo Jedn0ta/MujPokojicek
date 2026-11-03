@@ -68,6 +68,7 @@ static func names(kind: String) -> int:
 
 func build(h: Dictionary) -> void:
 	for c in get_children(): c.free()
+	Yarn.blob_shadow(self, 0.3)
 	rig = _scene("Knight").instantiate(); add_child(rig)
 	rig.scale = Vector3.ONE * SCALE
 	skel = rig.find_child("Skeleton3D", true, false)

@@ -10,8 +10,9 @@ static func mat(c: Color, _soft := true) -> StandardMaterial3D:
 		return _cache[key]
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
-	m.roughness = 0.55
-	m.metallic_specular = 0.35
+	m.roughness = 0.6
+	m.metallic_specular = 0.3
+	m.rim_enabled = true; m.rim = 0.18; m.rim_tint = 0.5
 	_cache[key] = m
 	return m
 
@@ -70,3 +71,24 @@ static func radius_at(profile: Array, y: float) -> float:
 		if y >= a.y and y <= b.y:
 			return lerpf(a.x, b.x, (y - a.y) / max(b.y - a.y, 0.0001))
 	return 0.0
+
+
+static var _shadow_mat: StandardMaterial3D
+
+## Měkký kulatý stín pod postavičkou (místo ostrých stínů).
+static func blob_shadow(p: Node3D, r := 0.28) -> MeshInstance3D:
+	if _shadow_mat == null:
+		var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+		for yy in 64:
+			for xx in 64:
+				var d := Vector2(xx - 31.5, yy - 31.5).length() / 31.5
+				img.set_pixel(xx, yy, Color(0.25, 0.12, 0.3, clampf(1.0 - d, 0.0, 1.0) * 0.38))
+		_shadow_mat = StandardMaterial3D.new()
+		_shadow_mat.albedo_texture = ImageTexture.create_from_image(img)
+		_shadow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_shadow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var mi := MeshInstance3D.new(); var q := PlaneMesh.new(); q.size = Vector2(r * 2.0, r * 2.0)
+	mi.mesh = q; mi.material_override = _shadow_mat; mi.position.y = 0.006
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	p.add_child(mi)
+	return mi

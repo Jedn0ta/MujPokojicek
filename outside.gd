@@ -26,7 +26,7 @@ var props: Array = []   # vše, co může zmizet nebo změnit barvu
 var _undo: Array = []   # jak vrátit poslední změnu
 
 # výchozí světlo v pokoji, aby se po návratu od okna vrátilo
-var room_env := {"bg": Color("ffe9f3"), "amb": 0.45, "sun": 0.25}
+var room_env := {"bg": Color("ffe9f3"), "amb": 0.56, "sun": 0.26}
 
 static func flat(c: Color) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new(); m.albedo_color = c
@@ -370,7 +370,7 @@ func apply_sky() -> void:
 	sun.light_energy = sl[weather]
 
 func restore_room() -> void:
-	env.background_color = room_env["bg"]
+	env.background_color = Data.STAGE
 	env.ambient_light_energy = room_env["amb"]
 	env.ambient_light_color = Color("fff4fb")
 	sun.light_energy = room_env["sun"]
