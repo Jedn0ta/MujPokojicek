@@ -6,7 +6,7 @@ extends Node3D
 signal arrived(cmd: Dictionary)
 
 const HEAD := [Vector2(0, 0.5), Vector2(0.12, 0.505), Vector2(0.2, 0.54), Vector2(0.245, 0.6), Vector2(0.262, 0.68), Vector2(0.262, 0.76), Vector2(0.245, 0.84), Vector2(0.205, 0.91), Vector2(0.14, 0.965), Vector2(0.06, 0.99), Vector2(0, 0.995)]
-const BODY := [Vector2(0, 0.215), Vector2(0.1, 0.22), Vector2(0.155, 0.25), Vector2(0.175, 0.31), Vector2(0.168, 0.38), Vector2(0.14, 0.45), Vector2(0.1, 0.5), Vector2(0.07, 0.53), Vector2(0.06, 0.56), Vector2(0, 0.57)]
+const BODY := [Vector2(0, 0.215), Vector2(0.11, 0.22), Vector2(0.17, 0.25), Vector2(0.192, 0.31), Vector2(0.186, 0.38), Vector2(0.152, 0.45), Vector2(0.105, 0.5), Vector2(0.07, 0.53), Vector2(0.06, 0.56), Vector2(0, 0.57)]
 const BODY_DEPTH := 0.82
 const ARM := [Vector2(0, -0.27), Vector2(0.03, -0.265), Vector2(0.048, -0.24), Vector2(0.05, -0.21), Vector2(0.042, -0.18), Vector2(0.044, -0.1), Vector2(0.05, -0.03), Vector2(0.042, 0.0), Vector2(0, 0.012)]
 const LEG := [Vector2(0, -0.2), Vector2(0.055, -0.19), Vector2(0.065, -0.14), Vector2(0.066, -0.05), Vector2(0.06, 0.0), Vector2(0, 0.02)]
@@ -36,6 +36,38 @@ var fs := 1.0
 var _g: Dictionary = {}
 var _gstart := 0
 var head_mi: MeshInstance3D
+var _face_f := {}
+var _eye_mi: MeshInstance3D
+var _mouth_mi: MeshInstance3D
+var _mouth_now := ""
+var _blink_at := 2.0
+var _blinking := false
+
+## Mrkání: občas na chvilku zavře oči.
+func _blink(d: float) -> void:
+	if _eye_mi == null: return
+	_blink_at -= d
+	if not _blinking and _blink_at <= 0.0:
+		_blinking = true; _blink_at = 0.13
+		(_eye_mi.material_override as StandardMaterial3D).albedo_texture = CuteHead.eye_tex(_face_f, false)
+	elif _blinking and _blink_at <= 0.0:
+		_blinking = false; _blink_at = randf_range(2.0, 5.0)
+		(_eye_mi.material_override as StandardMaterial3D).albedo_texture = CuteHead.eye_tex(_face_f, true)
+
+## Pusa podle toho, co postavička dělá.
+func _mood_mouth() -> void:
+	if _mouth_mi == null: return
+	var want := str(_face_f.get("mouth", "usmev"))
+	match str(cmd.get("act", "idle")):
+		"dance", "wish", "alarm", "open", "play", "kick", "bath": want = "smich"
+		"window", "look", "read": want = "o" if fmod(act_t, 3.0) < 1.2 else want
+		"eat", "drink": want = "o" if fmod(t * 3.0, 1.0) < 0.5 else "usmev"
+		"hug", "pet": want = "pusinka"
+		"lie": want = "usmev"
+	if walking: want = str(_face_f.get("mouth", "usmev"))
+	if want != _mouth_now:
+		_mouth_now = want
+		(_mouth_mi.material_override as StandardMaterial3D).albedo_texture = CuteHead.mouth_tex(_face_f, want)
 
 func face(x: float, y: float, out := 0.0) -> Vector3:
 	var gx := fc.x + x * float(_g.get("sp", 1.0)) * fs
@@ -142,16 +174,38 @@ func build(h: Dictionary) -> void:
 			Yarn.cyl(pose, Vector3(0, 0.155, 0), 0.262, 0.265, 0.02, bc.lightened(0.35)).scale = Vector3(1, 1, BODY_DEPTH)
 	# vršek
 	match top:
-		0, 1:
-			Yarn.lathe(pose, [Vector2(0.18, 0.27)] + grow(BODY, 0.014, 0.3, 0.53), Vector3.ZERO, tc, true, Vector3.ZERO, BODY_DEPTH)
-			Yarn.cyl(pose, Vector3(0, 0.27, 0), 0.19, 0.19, 0.03, tc.darkened(0.12)).scale = Vector3(1, 1, BODY_DEPTH)
+		0, 1, 3, 4:
+			Yarn.lathe(pose, [Vector2(0.195, 0.27)] + grow(BODY, 0.014, 0.3, 0.53), Vector3.ZERO, tc, true, Vector3.ZERO, BODY_DEPTH)
+			Yarn.cyl(pose, Vector3(0, 0.27, 0), 0.205, 0.205, 0.03, tc.darkened(0.12)).scale = Vector3(1, 1, BODY_DEPTH)
 		_:
 			Yarn.lathe(pose, [Vector2(0.27, 0.13), Vector2(0.265, 0.15), Vector2(0.21, 0.27)] + grow(BODY, 0.014, 0.3, 0.53), Vector3.ZERO, tc, true, Vector3.ZERO, BODY_DEPTH)
 			Yarn.cyl(pose, Vector3(0, 0.135, 0), 0.272, 0.275, 0.02, Color("fffaf4")).scale = Vector3(1, 1, BODY_DEPTH)
-	if top == 1:
-		Yarn.cyl(pose, Vector3(0, 0.54, 0), 0.075, 0.09, 0.05, tc.lightened(0.2))
+	var front := 0.192 * BODY_DEPTH + 0.012
+	match top:
+		0:   # tričko s hvězdičkou
+			var st := MeshInstance3D.new(); st.mesh = Props.star_mesh(0.05, 0.012); st.material_override = Yarn.mat(Color("ffe14d"))
+			st.position = Vector3(0, 0.38, front + 0.004); pose.add_child(st)
+		1:   # svetr s proužky
+			Yarn.cyl(pose, Vector3(0, 0.54, 0), 0.075, 0.09, 0.05, tc.lightened(0.2))
+			for y in [0.34, 0.42]:
+				var r := 0.192 if y < 0.4 else 0.172
+				Yarn.cyl(pose, Vector3(0, y, 0), r + 0.017, r + 0.017, 0.025, tc.lightened(0.35)).scale = Vector3(1, 1, BODY_DEPTH)
+		2:   # šaty s mašlí
+			for s in [-1.0, 1.0]: Yarn.ball(pose, Vector3(0.035 * s, 0.33, front - 0.004), Vector3(0.06, 0.04, 0.025), Color("fffaf4"), false, Vector3(0, 0, 0.35 * s))
+			Yarn.ball(pose, Vector3(0, 0.33, front), Vector3(0.025, 0.025, 0.02), Color("fffaf4"), false)
+		3:   # mikina: kapuce, kapsa, šňůrky
+			Yarn.ball(pose, Vector3(0, 0.5, -0.11), Vector3(0.24, 0.13, 0.14), tc.darkened(0.08))
+			Yarn.box(pose, Vector3(0, 0.33, front - 0.004), Vector3(0.17, 0.07, 0.012), tc.darkened(0.12))
+			for s in [-1.0, 1.0]: Yarn.cyl(pose, Vector3(0.03 * s, 0.47, front - 0.03), 0.006, 0.006, 0.08, Color("fffaf4"), false)
+		4:   # lacláče: náprsenka, kšandy a knoflíky
+			Yarn.box(pose, Vector3(0, 0.37, front - 0.006), Vector3(0.16, 0.12, 0.014), bc)
+			for s in [-1.0, 1.0]:
+				Yarn.box(pose, Vector3(0.065 * s, 0.45, front - 0.02), Vector3(0.03, 0.09, 0.012), bc)
+				Yarn.cyl(pose, Vector3(0.065 * s, 0.415, front + 0.002), 0.012, 0.012, 0.008, Color("ffe14d"), false, Vector3(PI / 2, 0, 0))
 	for i in 2:
-		Yarn.lathe(arms[i], grow(ARM, 0.012, -0.17 if top == 1 else -0.08, 0.02), Vector3.ZERO, tc, true, Vector3.ZERO, 1.0, 20)
+		Yarn.lathe(arms[i], grow(ARM, 0.012, -0.17 if top in [1, 3] else -0.08, 0.02), Vector3.ZERO, tc, true, Vector3.ZERO, 1.0, 20)
+		# ručičky
+		Yarn.ball(arms[i], Vector3(0, -0.27, 0.005), Vector3(0.085, 0.08, 0.08), sk, false)
 	# nová roztomilá hlava (modelovaná z hladkých tvarů, malovaný obličej)
 	if int(h.get("v", 2)) >= 2:
 		_cute_head(h, sk, hc, hatc, hat)
@@ -351,22 +405,23 @@ func build(h: Dictionary) -> void:
 	_apply_pose()
 
 const CUTE_Y := 0.76
-const EARS2 := ["lidské", "žádné", "medvídek", "kočička", "zajíček", "pejsek", "myška", "elfí"]
-const NOSE2 := ["žádný", "knoflík", "čumáček", "velký čumáček"]
+const EARS2 := ["lidské", "žádné", "medvídek", "kočička", "zajíček", "pejsek", "myška", "elfí", "liška"]
+const NOSE2 := ["žádný", "tečka", "knoflík", "trojúhelníček", "srdíčko", "čenich"]
 const EXTRA2 := ["nic", "pihy", "brýle", "brýle a pihy", "fousky"]
 
 ## Parametry pro CuteHead z voleb postavičky.
 static func cute_params(h: Dictionary) -> Dictionary:
 	var f: Dictionary = (CuteHead.SHAPES[clampi(int(h.get("headshape", 0)), 0, CuteHead.SHAPES.size() - 1)] as Dictionary).duplicate()
-	f["w"] = clampf(float(f.get("w", 0.5)) + 0.18 * (int(h.get("headw", 2)) - 2), 0.0, 1.0)
-	f["h"] = clampf(float(f.get("h", 0.5)) + 0.18 * (int(h.get("headh", 2)) - 2), 0.0, 1.0)
+	f["w"] = clampf(float(f.get("w", 0.5)) + (float(h.get("hw", 0.5)) - 0.5) * 1.6, 0.0, 1.0)
+	f["h"] = clampf(float(f.get("h", 0.5)) + (float(h.get("hh", 0.5)) - 0.5) * 1.6, 0.0, 1.0)
 	f["eyes"] = CuteHead.EYES[clampi(int(h.get("eyes", 0)), 0, CuteHead.EYES.size() - 1)]
 	f["mouth"] = CuteHead.MOUTHS[clampi(int(h.get("mouth", 0)), 0, CuteHead.MOUTHS.size() - 1)]
 	f["brows"] = CuteHead.BROWS[clampi(int(h.get("brows", 0)), 0, CuteHead.BROWS.size() - 1)]
 	f["hair"] = clampi(int(h.get("hair", 1)), 0, CuteHead.HAIRS.size() - 1)
-	var nose := int(h.get("nose", 0))
-	f["nose"] = 1.0 if nose == 1 else 0.0
-	f["snout"] = [0.0, 0.0, 0.45, 0.85][clampi(nose, 0, 3)]
+	var nose := clampi(int(h.get("nose", 0)), 0, CuteHead.NOSES.size() - 1)
+	f["nosepaint"] = CuteHead.NOSES[nose]
+	f["nose"] = 1.0 if nose == 2 else 0.0
+	f["snout"] = [0.0, 0.0, 0.0, 0.35, 0.35, 0.8][nose]
 	var ex := int(h.get("extra", 0))
 	f["freckles"] = ex in [1, 3]
 	f["whiskers"] = ex == 4
@@ -376,11 +431,14 @@ func _cute_head(h: Dictionary, sk: Color, hc: Color, hatc: Color, hat: int) -> v
 	var f := cute_params(h)
 	var hair := int(f["hair"])
 	if hat in [1, 3] and hair in [6, 7]: f["hair"] = 1      # drdol a chumáčky se pod čepici nevejdou
-	var root := Node3D.new(); root.position = Vector3(0, CUTE_Y, 0); pose.add_child(root)
-	CuteHead.build(root, f, sk, hc)
+	var bottom := CuteHead.surface(0.0, -PI / 2.0 + 0.01, f).y
+	var root := Node3D.new(); root.position = Vector3(0, 0.53 - bottom, 0); pose.add_child(root)
+	var hn := CuteHead.build(root, f, sk, hc)
+	_face_f = f; _eye_mi = hn.get_meta("eyes"); _mouth_mi = hn.get_meta("mouth"); _mouth_now = str(f["mouth"])
+	_blink_at = randf_range(1.0, 3.0)
 	var top := CuteHead.surface(0.0, PI / 2.0 - 0.01, f).y
 	var hw := CuteHead.surface(PI / 2.0, 0.0, f).x
-	var crown := CUTE_Y + top
+	var crown := root.position.y + top
 	head_k = Vector2(hw / 0.262, top / 0.25)
 	# uši
 	var pink := Color("ffb3c6")
@@ -388,7 +446,8 @@ func _cute_head(h: Dictionary, sk: Color, hc: Color, hatc: Color, hat: int) -> v
 		0:
 			for s in [-1.0, 1.0]:
 				var e := CuteHead.surface(1.57 * s, -0.08, f)
-				Yarn.ball(root, e, Vector3(0.05, 0.085, 0.06), sk, false)
+				Yarn.ball(root, e + Vector3(0.006 * s, 0, -0.005), Vector3(0.055, 0.095, 0.075), sk, false, Vector3(0, -0.35 * s, 0.1 * s))
+				Yarn.ball(root, e + Vector3(0.02 * s, -0.004, 0.006), Vector3(0.02, 0.055, 0.04), sk.darkened(0.12), false, Vector3(0, -0.35 * s, 0.1 * s))
 		2:
 			for s in [-1.0, 1.0]:
 				var e := CuteHead.surface(0.85 * s, 0.8, f) * 1.02
@@ -416,10 +475,15 @@ func _cute_head(h: Dictionary, sk: Color, hc: Color, hatc: Color, hat: int) -> v
 		7:
 			for s in [-1.0, 1.0]:
 				var e := CuteHead.surface(1.57 * s, 0.0, f)
-				Yarn.cyl(root, e + Vector3(0.05 * s, 0.03, 0), 0.0, 0.05, 0.17, sk, false, Vector3(0, 0, -1.2 * s))
+				var el := Yarn.cyl(root, e + Vector3(0.06 * s, 0.04, 0), 0.0, 0.055, 0.19, sk, false, Vector3(0, 0, -1.15 * s)); el.scale = Vector3(1, 1, 0.45)
+		8:
+			for s in [-1.0, 1.0]:
+				var e := CuteHead.surface(0.7 * s, 0.82, f)
+				var o := Yarn.cyl(root, e + Vector3(0.01 * s, 0.07, 0), 0.0, 0.1, 0.22, Color("ff9a4d"), false, Vector3(0, 0, -0.4 * s)); o.scale = Vector3(1, 1, 0.4)
+				var i2 := Yarn.cyl(root, e + Vector3(0.01 * s, 0.06, 0.025), 0.0, 0.06, 0.15, Color("fff4ea"), false, Vector3(0, 0, -0.4 * s)); i2.scale = Vector3(1, 1, 0.3)
 	# brýle
 	if int(h.get("extra", 0)) in [2, 3]:
-		var ey := -0.1; var gap := 0.36
+		var lay := CuteHead.eye_layout(f); var ey := lay.x; var gap := lay.y
 		for s in [-1.0, 1.0]:
 			var e := CuteHead.surface(gap * s, ey, f)
 			var ring := MeshInstance3D.new(); var tm := TorusMesh.new(); tm.inner_radius = 0.058; tm.outer_radius = 0.07; tm.rings = 24; tm.ring_segments = 6
@@ -439,7 +503,7 @@ func _cute_head(h: Dictionary, sk: Color, hc: Color, hatc: Color, hat: int) -> v
 		3:
 			var cap3 := MeshInstance3D.new(); cap3.mesh = CuteHead.cap_mesh(0.4, 0.055, f); cap3.material_override = _two_sided(hatc); root.add_child(cap3)
 			var front := CuteHead.surface(0.0, 0.42, f)
-			var vis := Yarn.ball(root, front + Vector3(0, -0.005, 0.07), Vector3(0.3, 0.035, 0.2), hatc.darkened(0.1), false)
+			var vis := Yarn.ball(root, front + Vector3(0, -0.012, 0.1), Vector3(0.34, 0.035, 0.26), hatc.darkened(0.1), false)
 			vis.rotation.x = -0.1
 			Yarn.ball(root, Vector3(0, top + 0.055, 0), Vector3(0.05, 0.03, 0.05), hatc.lightened(0.3))
 		4:
@@ -628,6 +692,8 @@ func _rest() -> void:
 func _process(d: float) -> void:
 	if pose == null: return
 	t += d
+	_blink(d)
+	_mood_mouth()
 	if walking:
 		var to := target - position
 		to.y = 0

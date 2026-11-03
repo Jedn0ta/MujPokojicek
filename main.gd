@@ -240,7 +240,7 @@ func _update_progress() -> void:
 func _cam_defaults() -> void:
 	if tab == "hero":
 		cam_target = Vector3(0, 0.55, 0); cam_yaw = 0.0; cam_pitch = 0.08; cam_dist = 3.0
-		if hero_tab in ["oci", "pusa", "vlasy"]: cam_target.y = 0.74; cam_dist = 2.1
+		if hero_tab in ["oci", "pusa", "vlasy", "hlava"]: cam_target.y = 0.74; cam_dist = 2.1
 	else:
 		cam_target = Vector3(0, 0.3, -0.1); cam_yaw = 0.12; cam_pitch = 0.6; cam_dist = 7.8
 
@@ -951,12 +951,12 @@ func _view_tex(k: int) -> Texture2D:
 # Jako v dětských hrách: nejdřív hotový kamarád, pak pár velkých záložek s obrázky.
 
 var hero_tab := "kamos"
-const HERO_TABS := [["kamos", "tab_kamos"], ["oci", "tab_oci"], ["pusa", "tab_pusa"], ["vlasy", "tab_vlasy"],
-	["obleceni", "tab_obleceni"], ["doplnky", "tab_doplnky"], ["telo", "tab_telo"], ["nastroje", "tab_nastroje"]]
+const HERO_TABS := [["kamos", "tab_kamos"], ["hlava", "tab_hlava"], ["oci", "tab_oci"], ["pusa", "tab_pusa"], ["vlasy", "tab_vlasy"],
+	["obleceni", "tab_obleceni"], ["doplnky", "tab_doplnky"], ["telo", "tab_telo"]]
 const KK_TABS := [["kamos", "tab_kamos"], ["oci", "tab_oci"], ["doplnky", "tab_doplnky"], ["obleceni", "tab_obleceni"], ["telo", "tab_telo"]]
 
 func _hero_cam() -> void:
-	var close: bool = hero_tab in ["oci", "pusa", "vlasy"]
+	var close: bool = hero_tab in ["oci", "pusa", "vlasy", "hlava"]
 	cam_target = Vector3(0, 0.74 if close else 0.55, 0); cam_dist = 2.1 if close else 3.0
 	cam_pitch = 0.08
 
@@ -998,6 +998,17 @@ func _hero_tray(h: Dictionary) -> void:
 					if not p.has("style"): p["style"] = ""
 					S["hero"] = p; S["name"] = keep_name; Data.save_state(S)
 					_refresh_stage(); _build_tray(); _cheer(), 92, pf, _opt_tex("preset", k))
+		"hlava":
+			# tvar hlavy a velká tlačítka: užší / širší / nižší / vyšší
+			var sz := _flow()
+			for b in [["narrower", "hw", -0.1], ["wider", "hw", 0.1], ["shorter", "hh", -0.1], ["longer", "hh", 0.1]]:
+				_icon(b[0], func():
+					h[b[1]] = clampf(float(h.get(b[1], 0.5)) + float(b[2]), 0.0, 1.0)
+					Data.save_state(S); _refresh_stage(), 74, sz)
+			_icon("reset", func(): h["hw"] = 0.5; h["hh"] = 0.5; Data.save_state(S); _refresh_stage(), 74, sz)
+			_gap()
+			pick.call("headshape", Data.OPT["headshape"].size())
+			pick.call("ears", Data.OPT["ears"].size())
 		"oci":
 			if kk: pick.call("kkhead", KKDoll.names("kkhead"))
 			else:
@@ -1028,7 +1039,6 @@ func _hero_tray(h: Dictionary) -> void:
 				pick.call("hat", Data.OPT["hat"].size())
 				pick.call("hatc", Data.YARN.size(), Data.YARN, 60)
 				pick.call("extra", Data.OPT["extra"].size())
-				pick.call("ears", Data.OPT["ears"].size())
 				pick.call("horns", Data.OPT["horns"].size())
 				pick.call("tail", Data.OPT["tail"].size())
 				pick.call("wings", Data.OPT["wings"].size())
@@ -1039,7 +1049,6 @@ func _hero_tray(h: Dictionary) -> void:
 			else:
 				pick.call("skin", Data.SKIN.size(), Data.SKIN, 60)
 				pick.call("figure", Data.OPT["figure"].size())
-				pick.call("headshape", Data.OPT["headshape"].size())
 		"nastroje":
 			_opt_row("headw", 5, h, [], 72)
 			_opt_row("headh", 5, h, [], 72)
