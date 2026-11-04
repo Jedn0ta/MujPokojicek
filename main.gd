@@ -87,6 +87,7 @@ var cards: Array = []
 func _ready() -> void:
 	S = Data.load_state()
 	Data.apply_theme(str(S.get("theme", "girl")))
+	Data.crochet = bool(S.get("crochet", false))
 	theme = _make_theme()
 	var bg := ColorRect.new(); bg.color = Data.BG
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT); add_child(bg)
@@ -449,6 +450,7 @@ func _refresh_stage() -> void:
 		room.visible = false; pedestal.visible = true; frame.visible = false; outside.restore_room()
 		# portrétní světlo: slabší slunce, víc měkkého světla, ať obličej není přepálený
 		sun.light_energy = 0.22; env.ambient_light_energy = 0.5
+		if Data.crochet: env.background_color = Color("efe6da")
 		var d := _new_doll(S["hero"]); dolls.add_child(d); d.build(S["hero"]); d.rotation.y = spin
 		return
 	room.visible = true; pedestal.visible = false
@@ -1240,6 +1242,12 @@ func _settings_tray() -> void:
 	_set_row("sound", "nosound", "Zvuky", Snd.sfx_on, float(S.get("svol", 0.9)),
 		func(): Snd.sfx_on = not Snd.sfx_on; S["sfx"] = Snd.sfx_on; Data.save_state(S); return Snd.sfx_on,
 		func(v: float): S["svol"] = v; Snd.set_volumes(float(S.get("mvol", 0.7)), v); Data.save_state(S); Snd.play("pop", 0.0))
+	var cr := HBoxContainer.new(); cr.add_theme_constant_override("separation", 12); tray.add_child(cr)
+	var cb := UIcon.new("crochet", null, Color(0, 0, 0, 0), 76); cb.selected = Data.crochet; cr.add_child(cb)
+	var cl := Label.new(); cl.text = "Háčkované panenky"; cl.add_theme_font_size_override("font_size", 24); cr.add_child(cl)
+	cb.tapped.connect(func():
+		Data.crochet = not Data.crochet; S["crochet"] = Data.crochet; Data.save_state(S)
+		cb.selected = Data.crochet; cb.queue_redraw(); _refresh_stage())
 	_gap()
 	var vl := _label("Vzhled"); vl.add_theme_font_size_override("font_size", 26)
 	var th := _flow()

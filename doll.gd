@@ -45,7 +45,7 @@ var _blinking := false
 
 ## Mrkání: občas na chvilku zavře oči.
 func _blink(d: float) -> void:
-	if _eye_mi == null: return
+	if _eye_mi == null or not _eye_mi.visible: return
 	_blink_at -= d
 	if not _blinking and _blink_at <= 0.0:
 		_blinking = true; _blink_at = 0.13
@@ -125,7 +125,7 @@ static func grow(profile: Array, by: float, y_from := -9.0, y_to := 9.0) -> Arra
 
 func build(h: Dictionary) -> void:
 	for c in get_children(): c.free()
-	Yarn.blob_shadow(self, 0.3)
+	Yarn.blob_shadow(self, 0.3).set_meta("keep", true)
 	pose = Node3D.new(); add_child(pose)
 	legs.clear(); arms.clear()
 	for s in [-1, 1]:
@@ -209,6 +209,7 @@ func build(h: Dictionary) -> void:
 	# nová roztomilá hlava (modelovaná z hladkých tvarů, malovaný obličej)
 	if int(h.get("v", 2)) >= 2:
 		_cute_head(h, sk, hc, hatc, hat)
+		if Data.crochet: Yarn.crochetify(self)
 		_apply_pose()
 		return
 	# hlava (původní)
@@ -429,6 +430,9 @@ static func cute_params(h: Dictionary) -> Dictionary:
 
 func _cute_head(h: Dictionary, sk: Color, hc: Color, hatc: Color, hat: int) -> void:
 	var f := cute_params(h)
+	f["crochet"] = Data.crochet
+	if Data.crochet and str(f.get("nosepaint", "")) in ["tecka", "knoflik"]:
+		f["nose"] = 1.0; f["nosepaint"] = ""          # vyšitý nosík: malý háčkovaný hrbolek
 	var hair := int(f["hair"])
 	if hat in [1, 3] and hair in [6, 7]: f["hair"] = 1      # drdol a chumáčky se pod čepici nevejdou
 	var bottom := CuteHead.surface(0.0, -PI / 2.0 + 0.01, f).y

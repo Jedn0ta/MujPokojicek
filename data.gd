@@ -8,6 +8,7 @@ static var LILAC := Color("e4dbff")     # okraje panelů
 static var BG := Color("f4eeff")        # pozadí aplikace
 static var STAGE := Color("ffe9f3")     # pozadí scény
 static var theme := "girl"
+static var crochet := false            # háčkované panenky (nastavení)
 
 ## Holčičí (růžovofialový) nebo klučičí (modrooranžový) vzhled.
 static func apply_theme(t: String) -> void:

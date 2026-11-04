@@ -171,8 +171,36 @@ static func face_texture(f: Dictionary, skin: Color) -> ImageTexture:
 	if f.get("blush", true): for s in [-1.0, 1.0]: _stamp(img, "x_tvarenky", 0.52 * s, ey - 0.26, 0.3)
 	if f.get("freckles", false): for s in [-1.0, 1.0]: _stamp(img, "x_pihy", 0.5 * s, ey - 0.25, 0.24)
 	if f.get("whiskers", false): for s in [-1.0, 1.0]: _stamp(img, "x_fousky", 0.5 * s, ey - 0.34, 0.3, s > 0)
+	if f.get("crochet", false):
+		for s in [-1.0, 1.0]:
+			_stamp(img, "x_tvarenky", 0.5 * s, ey - 0.22, 0.34)
+			_stamp(img, "x_tvarenky", 0.5 * s, ey - 0.22, 0.26)
+			_stamp(img, "x_amilinka", L.y * s, ey - 0.05, 0.55, s > 0)
+		_stitch_over(img)
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
+
+## Očka háčkování přes celou kůži hlavy (řady = kruhy kolem hlavy).
+static func _stitch_over(img: Image) -> void:
+	var st: Image = (Yarn.stitch_images()[0] as Image).duplicate()
+	st.resize(64, 64, Image.INTERPOLATE_BILINEAR)
+	for y in img.get_height():
+		for x in img.get_width():
+			var g := st.get_pixel(x % 64, y % 64).r
+			var c := img.get_pixel(x, y)
+			img.set_pixel(x, y, Color(c.r * g, c.g * g, c.b * g, c.a))
+
+static var _head_nrm: ImageTexture
+static func _head_normal() -> ImageTexture:
+	if _head_nrm == null:
+		var n: Image = (Yarn.stitch_images()[1] as Image).duplicate()
+		n.resize(64, 64, Image.INTERPOLATE_BILINEAR)
+		var big := Image.create(TEX_W, TEX_H, false, Image.FORMAT_RGBA8)
+		for y in TEX_H:
+			for x in TEX_W: big.set_pixel(x, y, n.get_pixel(x % 64, y % 64))
+		big.generate_mipmaps()
+		_head_nrm = ImageTexture.create_from_image(big)
+	return _head_nrm
 
 # ---------- plošky obličeje (oči, pusa + nosík) ----------
 
@@ -322,6 +350,7 @@ static func hair_mesh(style: int, p: Dictionary) -> ArrayMesh:
 	var segs := 128; var rr := 20
 	var locks := 16.0
 	var thick := 0.034 * (1.3 if style == 2 or style == 4 else 1.0)
+	if p.get("crochet", false): thick = 0.006      # pod přízí je jen tenká háčkovaná čepička
 	var cols := []
 	for j in segs + 1:
 		var lon := -PI + TAU * float(j) / segs
@@ -397,14 +426,162 @@ static func build(parent: Node3D, f: Dictionary, skin: Color, hair_col: Color) -
 	mat.roughness = 0.85; mat.metallic_specular = 0.2
 	mat.rim_enabled = true; mat.rim = 0.08; mat.rim_tint = 0.8
 	mi.material_override = mat
+	mi.set_meta("keep", true)
+	var cro: bool = f.get("crochet", false)
+	if cro:
+		mat.normal_enabled = true; mat.normal_texture = _head_normal(); mat.roughness = 1.0
+		mat.rim = 0.25; mat.rim_tint = 0.9
 	var em := MeshInstance3D.new(); em.mesh = patch_mesh(f, eye_rect(f)); em.material_override = _patch_mat(eye_tex(f, true)); root.add_child(em)
 	var mm := MeshInstance3D.new(); mm.mesh = patch_mesh(f, mouth_rect(f)); mm.material_override = _patch_mat(mouth_tex(f)); root.add_child(mm)
 	root.set_meta("eyes", em); root.set_meta("mouth", mm)
+	em.set_meta("keep", true); mm.set_meta("keep", true)
+	if cro:
+		# bezpečnostní oči: lesklé černé polokoule s odleskem
+		em.visible = false
+		var L := eye_layout(f)
+		var glossy := StandardMaterial3D.new(); glossy.albedo_color = Color("16121c"); glossy.roughness = 0.08; glossy.metallic_specular = 1.0
+		for s in [-1.0, 1.0]:
+			var pnt := surface(L.y * s, L.x, f)
+			var eye := MeshInstance3D.new(); var sm := SphereMesh.new(); sm.radial_segments = 24; sm.rings = 12
+			eye.mesh = sm; eye.position = pnt * 0.99; eye.scale = Vector3(0.062, 0.07, 0.05) * (0.85 + 0.3 * float(f.get("eyesize", 0.5)))
+			eye.look_at_from_position(eye.position, eye.position + pnt.normalized(), Vector3.UP)
+			eye.material_override = glossy; eye.set_meta("keep", true); root.add_child(eye)
 	var hs := int(f.get("hair", 1))
 	if hs > 0:
 		var hm := MeshInstance3D.new(); hm.mesh = hair_mesh(hs, f); root.add_child(hm)
 		var hmat := StandardMaterial3D.new(); hmat.albedo_texture = hair_texture(hair_col); hmat.roughness = 0.45
+		if cro:
+			hmat = Yarn.crochet_mat(hair_col.darkened(0.1), 1.0).duplicate(); hm.set_meta("keep", true)
+			var ym := MeshInstance3D.new(); ym.mesh = yarn_hair_mesh(hs, f); ym.set_meta("keep", true)
+			var ymat := StandardMaterial3D.new(); ymat.albedo_texture = ply_texture(hair_col); ymat.roughness = 0.95
+			ymat.rim_enabled = true; ymat.rim = 0.35; ymat.rim_tint = 0.9
+			ym.material_override = ymat; root.add_child(ym)
 		hmat.rim_enabled = true; hmat.rim = 0.1; hmat.roughness = 0.65; hmat.cull_mode = BaseMaterial3D.CULL_DISABLED
 		hm.material_override = hmat
-		hair_extras(root, hs, f, hair_col)
+		if not cro: hair_extras(root, hs, f, hair_col)
+		if cro:
+			for b in root.find_children("*", "MeshInstance3D", true, false):
+				if not b.has_meta("keep") and b.material_override is StandardMaterial3D and b.material_override.albedo_texture != null:
+					var bs: Vector3 = (b as Node3D).scale
+					b.material_override = Yarn.crochet_mat(hair_col, (bs.x + bs.y + bs.z) / 3.0)
 	return root
+
+# ---------- vlasy z příze (háčkovaný režim) ----------
+
+static var _ply_tex := {}
+
+## Textura příze: zkroucená vlákna (šikmé proužky) podél pramene.
+static func ply_texture(col: Color) -> ImageTexture:
+	var key := col.to_html()
+	if _ply_tex.has(key): return _ply_tex[key]
+	var img := Image.create(32, 64, false, Image.FORMAT_RGBA8)
+	for y in 64:
+		for x in 32:
+			var s := sin((float(x) / 32.0 * 3.0 + float(y) / 64.0 * 6.0) * TAU)
+			var c := col.darkened(0.18 * (0.5 - 0.5 * s)).lightened(0.06 * maxf(0.0, s))
+			img.set_pixel(x, y, c)
+	img.generate_mipmaps()
+	var t := ImageTexture.create_from_image(img)
+	_ply_tex[key] = t
+	return t
+
+## Trubička podél bodů (jeden pramen příze).
+static func _tube(st: SurfaceTool, pts: Array, r: float, sides := 5) -> void:
+	var n := pts.size()
+	if n < 2: return
+	var rings := []
+	for i in n:
+		var p: Vector3 = pts[i]
+		var t: Vector3 = ((pts[mini(i + 1, n - 1)] as Vector3) - (pts[maxi(i - 1, 0)] as Vector3)).normalized()
+		var a := t.cross(Vector3.UP if absf(t.y) < 0.9 else Vector3.RIGHT).normalized()
+		var b := t.cross(a).normalized()
+		var rr := r * (1.0 if i < n - 1 else 0.6)
+		var ring := []
+		for k in sides + 1:
+			var ang := TAU * k / sides
+			var nn := a * cos(ang) + b * sin(ang)
+			ring.append([p + nn * rr, nn, Vector2(float(k) / sides, float(i) / 4.0)])
+		rings.append(ring)
+	for i in n - 1:
+		for k in sides:
+			var v0: Array = rings[i][k]; var v1: Array = rings[i][k + 1]; var v2: Array = rings[i + 1][k]; var v3: Array = rings[i + 1][k + 1]
+			for v in [v0, v2, v1, v1, v2, v3]:
+				st.set_normal(v[1]); st.set_uv(v[2]); st.add_vertex(v[0])
+
+static func _on_head(lon: float, el: float, p: Dictionary, off: float) -> Vector3:
+	var d := _dir(lon, el)
+	return d * (radius(d, p) + off)
+
+## Prameny příze pro účes. Vrací síť (vlasy rostou z temene po hlavě dolů, dlouhé visí volně).
+static func yarn_hair_mesh(style: int, p: Dictionary) -> ArrayMesh:
+	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rng := RandomNumberGenerator.new(); rng.seed = 1234 + style
+	var R := 0.0088
+	var count := 118
+	var top := PI / 2.0 - 0.02
+	var part := 0.0
+	if style in [3, 5, 6]: part = 0.35       # pěšinka trochu bokem
+	for layer in 2:
+		for j in count:
+			var lon := -PI + TAU * (j + 0.5 * layer + rng.randf_range(-0.2, 0.2)) / count
+			var line := _hairline(style, lon) - rng.randf_range(0.0, 0.05)
+			line = clampf(line, -1.2, PI / 2.0 - 0.15)
+			var off := 0.01 + layer * 0.009
+			var pts := []
+			var steps := 9
+			for s in steps + 1:
+				var u := float(s) / steps
+				var el := lerpf(top, line, u)
+				var l2 := lerpf(part, lon, smoothstep(0.0, 0.35, u))   # od pěšinky se rozbíhají
+				pts.append(_on_head(l2, el, p, off + 0.004 * sin(u * PI)))
+			# dlouhé vlasy (mikádo, dlouhé, kudrny) visí dál dolů, hlavně po stranách a vzadu
+			var back := (1.0 - cos(lon)) * 0.5
+			var hang := 0.0
+			if style == 2 and absf(lon) > 0.95: hang = 0.1
+			elif style == 4 and absf(lon) > 0.9: hang = 0.32 + 0.12 * back
+			elif style == 8: hang = 0.05
+			if hang > 0.0:
+				var last: Vector3 = pts[pts.size() - 1]
+				var outv := Vector3(last.x, 0, last.z).normalized()
+				for s in range(1, 6):
+					var k := float(s) / 5.0
+					var wig := Vector3(sin(k * 9.0 + j) * 0.012, 0, cos(k * 9.0 + j) * 0.012) if style == 8 else Vector3.ZERO
+					pts.append(last + Vector3(0, -hang * k, 0) + outv * 0.02 * k + wig)
+			if style == 8:
+				for i in pts.size(): pts[i] = (pts[i] as Vector3) + (pts[i] as Vector3).normalized() * 0.01 * sin(i * 2.3 + j)
+			_tube(st, pts, R * rng.randf_range(0.85, 1.15))
+	# svazky: copánky / culík / drdol / rozcuchané prameny nahoře
+	match style:
+		3:
+			for s in [-1.0, 1.0]:
+				var tie := surface(1.8 * s, 0.0, p) * 1.07
+				for k in 26:
+					var a := rng.randf() * TAU; var rr := rng.randf_range(0.0, 0.03)
+					var pts := []
+					for i in 8:
+						var u := float(i) / 7.0
+						pts.append(tie + Vector3(cos(a) * rr * (1.0 + u) + 0.04 * s * u, -0.32 * u, sin(a) * rr * (1.0 + u) - 0.02 * u))
+					_tube(st, pts, R)
+		5:
+			var tie5 := surface(PI, 0.4, p) * 1.06
+			for k in 34:
+				var a := rng.randf() * TAU; var rr := rng.randf_range(0.0, 0.035)
+				var pts := []
+				for i in 8:
+					var u := float(i) / 7.0
+					pts.append(tie5 + Vector3(cos(a) * rr * (1.0 + u), -0.3 * u, -0.06 * u + sin(a) * rr))
+				_tube(st, pts, R)
+		6, 7:
+			# rozcuchaný drdol / střapatá hlava: smyčky příze kolem středu
+			var c := Vector3(0, surface(0.0, top, p).y + (0.07 if style == 6 else 0.0), -0.02)
+			var big := 0.1 if style == 6 else 0.17
+			for k in (70 if style == 6 else 90):
+				var d := Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.2 if style == 7 else -0.6, 1), rng.randf_range(-1, 1)).normalized()
+				var pts := []
+				for i in 7:
+					var u := float(i) / 6.0
+					var q := d * big * (0.4 + 0.75 * sin(u * PI)) + d.cross(Vector3.UP).normalized() * 0.04 * (u - 0.5)
+					pts.append(c + q)
+				_tube(st, pts, R)
+	st.generate_tangents()
+	return st.commit()

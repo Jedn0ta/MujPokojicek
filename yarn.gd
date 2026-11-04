@@ -92,3 +92,71 @@ static func blob_shadow(p: Node3D, r := 0.28) -> MeshInstance3D:
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	p.add_child(mi)
 	return mi
+
+# ---------- háčkovaný vzhled (amigurumi) ----------
+
+static var _stitch: Array = []        # [jas, normála] jedné dlaždice očírek
+static var _crochet_cache := {}
+
+## Dlaždice háčkovaných oček: řady "V" (dvě šikmé smyčky), mezi nimi tmavší spáry.
+static func stitch_images() -> Array:
+	if not _stitch.is_empty(): return _stitch
+	var S := 256; var cell := 32
+	var hgt := Image.create(S, S, false, Image.FORMAT_RGBA8)
+	for y in S:
+		for x in S:
+			var cx := float(x % cell) / cell; var cy := float(y % cell) / cell
+			var row := int(y / cell)
+			if row % 2 == 1: cx = fmod(cx + 0.5, 1.0)        # řady se střídají jako u háčkování
+			var h := 0.0
+			for s: float in [-1.0, 1.0]:
+				# šikmá smyčka: elipsa natočená doleva / doprava
+				var px: float = cx - 0.5 - 0.17 * s; var py: float = cy - 0.5
+				var a: float = 0.45 * s
+				var u := px * cos(a) - py * sin(a); var v := px * sin(a) + py * cos(a)
+				var d := (u * u) / (0.16 * 0.16) + (v * v) / (0.42 * 0.42)
+				h = maxf(h, clampf(1.0 - d, 0.0, 1.0))
+			h = sqrt(h)
+			hgt.set_pixel(x, y, Color(h, h, h))
+	var albedo := Image.create(S, S, false, Image.FORMAT_RGBA8)
+	for y in S:
+		for x in S:
+			var h := hgt.get_pixel(x, y).r
+			var fib := 0.04 * sin(float(x) * 1.7 + float(y) * 0.6) * sin(float(y) * 2.3)
+			var g := 0.7 + 0.3 * h + fib
+			albedo.set_pixel(x, y, Color(g, g, g))
+	var nrm := hgt.duplicate()
+	nrm.bump_map_to_normal_map(6.0)
+	albedo.generate_mipmaps(); nrm.generate_mipmaps()
+	_stitch = [albedo, nrm, hgt]
+	return _stitch
+
+## Háčkovaný materiál dané barvy (vzor se drží tvaru díky triplanárnímu mapování).
+static func crochet_mat(c: Color, local_scale := 1.0) -> StandardMaterial3D:
+	# očko má mít ve světě pořád stejnou velikost (~2,5 cm), i na malých kouscích
+	var sc := snappedf(clampf(local_scale, 0.03, 3.0), 0.02)
+	var key := c.to_html() + "|%.2f" % sc
+	if _crochet_cache.has(key): return _crochet_cache[key]
+	var im := stitch_images()
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c
+	m.albedo_texture = ImageTexture.create_from_image(im[0])
+	m.normal_enabled = true; m.normal_texture = ImageTexture.create_from_image(im[1]); m.normal_scale = 1.0
+	m.roughness = 1.0; m.metallic_specular = 0.15
+	m.uv1_triplanar = true; m.uv1_scale = Vector3.ONE * 9.0 * sc; m.uv1_triplanar_sharpness = 4.0
+	m.rim_enabled = true; m.rim = 0.25; m.rim_tint = 0.9     # chlupatý okraj příze
+	_crochet_cache[key] = m
+	return m
+
+## Přebarví všechny hladké díly uzlu na háčkované (malované textury a průhledné vrstvy nechá být).
+static func crochetify(root: Node) -> void:
+	for mi in root.find_children("*", "MeshInstance3D", true, false):
+		if mi.has_meta("keep"): continue
+		var m = mi.material_override
+		if m is StandardMaterial3D and m.albedo_texture == null and m.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED and m.shading_mode != BaseMaterial3D.SHADING_MODE_UNSHADED:
+			var b: Basis = (mi as Node3D).global_transform.basis
+			var s := (b.x.length() + b.y.length() + b.z.length()) / 3.0
+			var cm := crochet_mat(m.albedo_color, s)
+			if m.cull_mode != BaseMaterial3D.CULL_BACK:
+				cm = cm.duplicate(); cm.cull_mode = m.cull_mode
+			mi.material_override = cm
