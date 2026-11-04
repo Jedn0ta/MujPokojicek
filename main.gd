@@ -508,6 +508,72 @@ var hold_cand := -1      # věc pod prstem, než se podrží
 var hold_item := -1      # věc, kterou dítě právě nese
 var chest_open := -1     # otevřený kouzelný kufr
 
+## Věc se nesmí dostat do zdi: střed omezíme podle velikosti a natočení.
+func _clamp_item(it: Array) -> void:
+	var e := Catalog.get_item(str(it[0]))
+	if e.has("lift"): return
+	var a := deg_to_rad(float(it[3]) if it.size() > 3 else 0.0)
+	var w := float(e["w"]) * 0.5; var d := float(e["d"]) * 0.5
+	var hx := absf(cos(a)) * w + absf(sin(a)) * d; var hz := absf(sin(a)) * w + absf(cos(a)) * d
+	it[1] = clampf(float(it[1]), -Room.HALF.x + hx + 0.02, Room.HALF.x - hx - 0.02)
+	it[2] = clampf(float(it[2]), -Room.HALF.y + hz + 0.02, Room.HALF.y - hz - 0.02)
+
+func _rotate_item(i: int) -> void:
+	var items: Array = S["room"]["items"]
+	if i < 0 or i >= items.size(): return
+	var it: Array = items[i]
+	while it.size() < 4: it.append(0.0)
+	it[3] = fmod(float(it[3]) + 45.0, 360.0)
+	_clamp_item(it); room.place(i, it); Snd.play("klap", 0.1, -4.0)
+	Data.save_state(S); paths.build(items)
+
+# --- tažení věci z nabídky do pokojíčku ---
+var last_moved := -1      # naposledy přenesená věc (mimo zařizování jde otočit)
+var drag_new := ""        # id věci, kterou dítě táhne z nabídky
+var drag_idx := -1        # její index v pokojíčku (jakmile prst vjede nad pokoj)
+
+func _start_drag_new(id: String) -> void:
+	if net.is_client: return
+	drag_new = id; drag_idx = -1
+	var items: Array = S["room"]["items"]
+	for j in items.size():
+		if str(items[j][0]) == id: drag_idx = j   # věc už v pokoji je: jen ji přesuneme
+
+func _input(e: InputEvent) -> void:
+	if drag_new == "": return
+	var gp := Vector2.ZERO; var moved := false; var released := false
+	if e is InputEventScreenDrag: gp = e.position; moved = true
+	elif e is InputEventScreenTouch and not e.pressed: gp = e.position; released = true
+	elif e is InputEventMouseMotion and e.device != InputEvent.DEVICE_ID_EMULATION: gp = e.position; moved = true
+	elif e is InputEventMouseButton and e.device != InputEvent.DEVICE_ID_EMULATION and not e.pressed: gp = e.position; released = true
+	else: return
+	get_viewport().set_input_as_handled()
+	var p: Vector2 = gp - stage.global_position
+	var over := Rect2(Vector2.ZERO, stage.size).has_point(p)
+	var items: Array = S["room"]["items"]
+	if moved and over:
+		var hit = _floor_hit(p)
+		if hit == null: return
+		if drag_idx < 0:
+			var r: Dictionary = S["room"]
+			if r.get("chest", []).has(drag_new): r["chest"].erase(drag_new)
+			items.append([drag_new, hit.x, hit.z, 0, 0.0]); drag_idx = items.size() - 1
+			_refresh_stage(); Snd.play("pop")
+		var it: Array = items[drag_idx]
+		while it.size() < 5: it.append(0.0)
+		it[1] = hit.x; it[2] = hit.z
+		_clamp_item(it)
+		it[4] = room.top_at(it[1], it[2], drag_idx) if _small(str(it[0])) else 0.0
+		room.place(drag_idx, it)
+		var n: Node3D = room.item_node(drag_idx)
+		if n: n.position.y += 0.12
+	if released:
+		if drag_idx >= 0:
+			sel = drag_idx if edit_mode else -1
+			Data.save_state(S); _refresh_stage(); paths.build(items)
+		drag_new = ""; drag_idx = -1
+		_build_tray()
+
 func _small(id: String) -> bool:
 	var e := Catalog.get_item(id)
 	return float(e["w"]) * float(e["d"]) < 0.2 and not e.has("lift")
@@ -596,9 +662,9 @@ func _p_move(i: int, p: Vector2, rel: Vector2) -> void:
 		var hit = _floor_hit(p)
 		if hit != null:
 			var it: Array = S["room"]["items"][hold_item]
-			it[1] = clampf(hit.x, -Room.HALF.x + 0.12, Room.HALF.x - 0.12)
-			it[2] = clampf(hit.z, -Room.HALF.y + 0.12, Room.HALF.y - 0.12)
+			it[1] = hit.x; it[2] = hit.z
 			while it.size() < 5: it.append(0.0)
+			_clamp_item(it)
 			it[4] = room.top_at(it[1], it[2], hold_item) if _small(str(it[0])) else 0.0
 			room.place(hold_item, it); _lift_held()
 		return
@@ -614,8 +680,8 @@ func _p_move(i: int, p: Vector2, rel: Vector2) -> void:
 		var hit = _floor_hit(p)
 		if hit != null:
 			var items: Array = S["room"]["items"]
-			items[dragging][1] = clampf(hit.x, -Room.HALF.x + 0.15, Room.HALF.x - 0.15)
-			items[dragging][2] = clampf(hit.z, -Room.HALF.y + 0.15, Room.HALF.y - 0.15)
+			items[dragging][1] = hit.x; items[dragging][2] = hit.z
+			_clamp_item(items[dragging])
 			room.place(dragging, items[dragging])
 		return
 	cam_yaw -= rel.x * 0.006
@@ -641,6 +707,8 @@ func _p_up(i: int, p: Vector2) -> void:
 			r["chest"].append(str(it[0])); items.remove_at(hold_item)
 			Snd.play("trpyt"); room.burst(Vector3(float(items[k if k < hold_item else k - 1][1]), 0.4, float(items[k if k < hold_item else k - 1][2])))
 			sel = -1
+		else:
+			last_moved = hold_item
 		hold_item = -1
 		Data.save_state(S); _refresh_stage(); paths.build(items); _build_tray()
 		return
@@ -839,7 +907,20 @@ func _gap() -> void:
 	var line := ColorRect.new(); line.color = Data.LILAC; line.custom_minimum_size.y = 3; tray.add_child(line)
 
 ## Řada voleb s obrázky (náhledy z icons/opt_<klíč>_<číslo>.png), nebo s barvami.
+const LABELS := {"wall": "Barva stěn", "wallp": "Tapeta", "curt": "Závěsy", "floor": "Barva podlahy", "floorp": "Vzor podlahy",
+	"hair": "Účes", "hairc": "Barva vlasů", "top": "Oblečení nahoře", "topc": "Barva vršku", "bottom": "Oblečení dole", "botc": "Barva spodku",
+	"shoes": "Barva bot", "hat": "Čepice", "hatc": "Barva čepice", "extra": "Brýle, pihy, fousky", "ears": "Uši", "horns": "Růžky",
+	"tail": "Ocásek", "wings": "Křídla", "skin": "Barva kůže", "figure": "Postava", "headshape": "Tvar hlavy", "eyes": "Oči",
+	"brows": "Obočí", "mouth": "Pusa", "nose": "Nosík", "kkhead": "Hlava", "kkhat": "Klobouk", "kkbody": "Tělo", "kkarms": "Ruce",
+	"kklegs": "Nohy", "kkcape": "Plášť", "kktint": "Barva oblečení", "kkhattint": "Barva klobouku", "headw": "Šířka hlavy", "headh": "Výška hlavy"}
+
+func _row_label(t: String) -> void:
+	var l := Label.new(); l.text = t
+	l.add_theme_font_size_override("font_size", 20); l.add_theme_color_override("font_color", Data.INK.lightened(0.2))
+	tray.add_child(l)
+
 func _opt_row(key: String, count: int, target: Dictionary, colors: Array = [], sz := 72.0, textures: Array = []) -> void:
+	if LABELS.has(key): _row_label(LABELS[key])
 	var flow := _flow()
 	for i in count:
 		var tex: Texture2D = textures[i] if i < textures.size() else (null if not colors.is_empty() else _opt_tex(key, i))
@@ -850,7 +931,10 @@ func _opt_row(key: String, count: int, target: Dictionary, colors: Array = [], s
 		flow.add_child(b)
 		b.tapped.connect(func():
 			target[key] = i; Data.save_state(S); _refresh_stage()
-			if key == "wallp": _build_tray(); return
+			if key == "wallp":
+				_build_tray()
+				if i == 4: _pixel_studio(target)
+				return
 			if key == "headshape":
 				sculpt_tool = ""
 				_clamp_camera(); _build_tray(); return
@@ -881,23 +965,74 @@ func _sculpt_tools(h: Dictionary) -> void:
 ## Malování vlastní tapety (25 × 25 čtverečků).
 var _pix_dirty := 0
 func _pixel_tools(r: Dictionary) -> void:
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 12); tray.add_child(row)
+	var prev := TextureRect.new(); prev.custom_minimum_size = Vector2(96, 96); prev.stretch_mode = TextureRect.STRETCH_SCALE
+	prev.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	prev.texture = PixelEditor.make_texture(r.get("pix", []), Data.pick(Data.WALL, r.get("wall", 0))); row.add_child(prev)
+	_icon("pencil", func(): _pixel_studio(r), 96, row)
+	_gap()
+
+## Ateliér na malování tapety přes celou obrazovku: velké plátno, lupa, ručička na posouvání.
+func _pixel_studio(r: Dictionary) -> void:
+	var ov := ColorRect.new(); ov.color = Data.BG; ov.set_anchors_preset(Control.PRESET_FULL_RECT); add_child(ov)
+	var mc := MarginContainer.new(); mc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for s in ["left", "right", "top", "bottom"]: mc.add_theme_constant_override("margin_" + s, 16)
+	ov.add_child(mc)
+	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 18); mc.add_child(hb)
+	var frame_p := PanelContainer.new(); frame_p.add_theme_stylebox_override("panel", _box(Color.WHITE, Data.LILAC, 4))
+	frame_p.size_flags_horizontal = Control.SIZE_EXPAND_FILL; hb.add_child(frame_p)
 	var ed := PixelEditor.new()
-	if r.get("pix", []).size() == PixelEditor.N * PixelEditor.N: ed.pix = r["pix"]
+	if r.get("pix", []).size() > 0: ed.pix = (r["pix"] as Array).duplicate()
 	ed.base = Data.pick(Data.WALL, r.get("wall", 0))
-	ed.changed.connect(func(): r["pix"] = ed.pix; _pix_dirty = Time.get_ticks_msec() + 250)
-	var pal := _flow()
+	ed.size_flags_horizontal = Control.SIZE_EXPAND_FILL; ed.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	frame_p.add_child(ed)
+	ed.changed.connect(func(): r["pix"] = ed.pix)
+	var side := VBoxContainer.new(); side.custom_minimum_size.x = 330; side.add_theme_constant_override("separation", 10); hb.add_child(side)
+	var done := UIcon.new("check", null, Color(0, 0, 0, 0), 84); done.round_btn = true; side.add_child(done)
+	done.tapped.connect(func():
+		r["pix"] = ed.pix; r["wallp"] = 4; Data.save_state(S); ov.queue_free(); _refresh_stage(); _build_tray())
+	var lab := func(t: String):
+		var l := Label.new(); l.text = t; l.add_theme_font_size_override("font_size", 20)
+		l.add_theme_color_override("font_color", Data.INK.lightened(0.2)); side.add_child(l)
+	lab.call("Barvy")
+	var pal := HFlowContainer.new(); pal.add_theme_constant_override("h_separation", 8); pal.add_theme_constant_override("v_separation", 8); side.add_child(pal)
+	var tools := HFlowContainer.new(); tools.add_theme_constant_override("h_separation", 8); tools.add_theme_constant_override("v_separation", 8)
+	var btn := {}      # tlačítka nástrojů (slovník, ať je lambda vidí i po vytvoření)
+	var mark := func():
+		for j in pal.get_child_count(): pal.get_child(j).selected = (not ed.hand) and j == ed.brush; pal.get_child(j).queue_redraw()
+		if btn.is_empty(): return
+		btn["pen"].selected = not ed.hand and ed.brush >= 0; btn["eraser"].selected = not ed.hand and ed.brush < 0; btn["hand"].selected = ed.hand
+		for b in btn.values(): b.queue_redraw()
 	for k in PixelEditor.PALETTE.size():
 		var b := UIcon.new("", null, PixelEditor.PALETTE[k], 50)
-		b.selected = k == ed.brush
-		b.tapped.connect(func():
-			ed.brush = k
-			for j in pal.get_child_count(): pal.get_child(j).selected = j == k; pal.get_child(j).queue_redraw())
+		b.tapped.connect(func(): ed.brush = k; ed.hand = false; mark.call())
 		pal.add_child(b)
-	tray.add_child(ed)
-	var tools := _flow()
-	_icon("fill", func(): ed.fill_all(), 64, tools)
-	_icon("trash", func(): ed.clear(), 64, tools)
-	_gap()
+	lab.call("Nástroje")
+	side.add_child(tools)
+	var pen := UIcon.new("pencil", null, Color(0, 0, 0, 0), 66); tools.add_child(pen)
+	pen.tapped.connect(func():
+		ed.hand = false
+		if ed.brush < 0: ed.brush = 1
+		mark.call())
+	var eraser := UIcon.new("unpuff", null, Color(0, 0, 0, 0), 66); tools.add_child(eraser)
+	eraser.tapped.connect(func(): ed.hand = false; ed.brush = -1; mark.call())
+	var handb := UIcon.new("hand", null, Color(0, 0, 0, 0), 66); tools.add_child(handb)
+	btn["pen"] = pen; btn["eraser"] = eraser; btn["hand"] = handb
+	handb.tapped.connect(func(): ed.hand = true; mark.call())
+	for t in [["plus", 1.5], ["minus", 1.0 / 1.5]]:
+		var zb := UIcon.new(t[0], null, Color(0, 0, 0, 0), 66); tools.add_child(zb)
+		zb.tapped.connect(func(): ed.set_zoom(ed.zoom * float(t[1])))
+	var fb := UIcon.new("fill", null, Color(0, 0, 0, 0), 66); tools.add_child(fb); fb.tapped.connect(func(): ed.fill_all())
+	var tb := UIcon.new("trash", null, Color(0, 0, 0, 0), 66); tools.add_child(tb); tb.tapped.connect(func(): ed.clear())
+	lab.call("Velikost plátna")
+	var szr := HBoxContainer.new(); szr.add_theme_constant_override("separation", 10); side.add_child(szr)
+	for nn in PixelEditor.SIZES:
+		var sb := UIcon.new("", null, Color(0, 0, 0, 0), 76); sb.text = str(nn); szr.add_child(sb)
+		sb.selected = ed.n == nn
+		sb.tapped.connect(func():
+			ed.resize_grid(nn)
+			for c in szr.get_children(): c.selected = c == sb; c.queue_redraw())
+	mark.call()
 
 ## Úpravy míst na hlavě: vyber místo, pak nafoukni / splaskni, protáhni / zkrať, zvětši / zmenši.
 func _region_tools(h: Dictionary) -> void:
@@ -1136,6 +1271,7 @@ func _build_tray() -> void:
 		var cnt := Label.new(); cnt.text = str(int(S.get("stars", 0))); cnt.add_theme_font_size_override("font_size", 44)
 		cnt.add_theme_color_override("font_color", Color("ffb020")); top.add_child(cnt)
 		_gap()
+		_row_label("Kolik věcí venku")
 		var lv := _flow()
 		for k in 4:
 			var b := _icon("few%d" % (k + 1), func():
@@ -1144,6 +1280,7 @@ func _build_tray() -> void:
 				_build_tray(); _new_round(), 96, lv)
 			b.selected = int(S.get("wlevel", 1)) == k + 1
 		_gap()
+		_row_label("Výhled z okna")
 		var vf := _flow()
 		for k in Outside.VIEWS.size():
 			var vb := _icon("", func():
@@ -1153,6 +1290,7 @@ func _build_tray() -> void:
 				_new_round(), 84, vf, _view_tex(k))
 			vb.selected = k == int(S.get("view", 0))
 		_gap()
+		_row_label("Počasí")
 		var wf := _flow()
 		for k in Data.WEATHER.size():
 			var w := WIcon.new(); w.kind = k; w.selected = k == int(S.get("weather", 0))
@@ -1185,13 +1323,16 @@ func _build_tray() -> void:
 			if net.is_client or not edit_mode:
 				var f := _flow()
 				_icon("window", func(): _my_cmd(Interact.window()), 110, f)
+				if not net.is_client and last_moved >= 0 and last_moved < rr["items"].size():
+					_icon("rotate", func(): _rotate_item(last_moved), 110, f)
 				return
 			var r: Dictionary = S["room"]
 			if sel >= 0:
 				var row2 := HBoxContainer.new(); row2.add_theme_constant_override("separation", 10); tray.add_child(row2)
-				_icon("rotate", func(): var it: Array = r["items"][sel]; it[3] = fmod(float(it[3]) + 90.0, 360.0); room.place(sel, it); Data.save_state(S); paths.build(r["items"]), 96, row2)
+				_icon("rotate", func(): _rotate_item(sel), 96, row2)
 				_icon("trash", func(): r["items"].remove_at(sel); sel = -1; Data.save_state(S); _refresh_stage(); _build_tray(), 96, row2)
 				_gap()
+			_row_label("Vyber věc a přetáhni ji do pokojíčku")
 			var cats := _flow()
 			for c in Catalog.CATS:
 				var cb := _icon("", func(): cat = c[0]; _build_tray(), 72, cats, Catalog.icon(Catalog.in_cat(c[0])[0]))
@@ -1213,6 +1354,8 @@ func _build_tray() -> void:
 						sel = r["items"].size() - 1
 					Data.save_state(S); _refresh_stage(); _build_tray(), 96, flow, Catalog.icon(id))
 				ib.selected = have >= 0
+				ib.draggable = true
+				ib.drag_out.connect(func(_at): _start_drag_new(id))
 				if have >= 0 or in_chest: ib.modulate = Color(1, 1, 1, 0.55)
 			_gap()
 			_opt_row("wall", Data.WALL.size(), r, Data.WALL, 64)
@@ -1223,6 +1366,7 @@ func _build_tray() -> void:
 			_opt_row("wallp", Data.WALLP.size(), r, [], 84, wt)
 			if int(r.get("wallp", 0)) == 4: _pixel_tools(r)
 			_opt_row("curt", Data.YARN.size(), r, Data.YARN, 56)
+			_row_label("Velikost okna")
 			var wf2 := _flow()
 			_icon("wider", func(): _win_size(0.3, 0), 64, wf2)
 			_icon("narrower", func(): _win_size(-0.3, 0), 64, wf2)

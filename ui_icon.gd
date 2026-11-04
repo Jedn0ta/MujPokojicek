@@ -3,6 +3,8 @@ extends Control
 ## Ukazuje buď nakreslenou ikonu (kind), obrázek (tex), nebo barvu (col).
 
 signal tapped
+signal drag_out(at: Vector2)   # prst vyjel z tlačítka doleva (tažení věci do pokojíčku)
+var draggable := false
 
 var kind := ""
 var tex: Texture2D
@@ -23,6 +25,12 @@ func _init(k := "", t: Texture2D = null, c := Color(0, 0, 0, 0), sz := 96.0) -> 
 	mouse_filter = Control.MOUSE_FILTER_PASS
 
 func _gui_input(e: InputEvent) -> void:
+	if draggable and e is InputEventMouseMotion and _down.x > -900:
+		var dv: Vector2 = e.global_position - _down
+		if dv.x < -26 and absf(dv.x) > absf(dv.y) * 1.1:
+			_down = Vector2(-999, -999)
+			drag_out.emit(e.global_position)
+			return
 	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
 		if e.pressed:
 			_down = e.global_position

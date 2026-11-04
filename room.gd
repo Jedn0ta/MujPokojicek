@@ -100,6 +100,14 @@ func place(i: int, it: Array) -> void:
 		if it.size() > 3: it[3] = rot
 	_items[i].position = Vector3(x, y, z)
 	_items[i].rotation.y = deg_to_rad(rot)
+	# půdorys pro obcházení: jen větší nábytek na zemi (ne koberce, malé hračky, věci na zdi)
+	var big: bool = float(e["w"]) * float(e["d"]) >= 0.12 and not e.get("flat", false) and not e.has("lift") and not e.get("live", false) and y < 0.05
+	if big:
+		var a := deg_to_rad(rot); var hw := float(e["w"]) * 0.5; var hd := float(e["d"]) * 0.5
+		var hx := absf(cos(a)) * hw + absf(sin(a)) * hd + 0.06; var hz := absf(sin(a)) * hw + absf(cos(a)) * hd + 0.06
+		_items[i].set_meta("foot", Rect2(x - hx, z - hz, hx * 2.0, hz * 2.0))
+	elif _items[i].has_meta("foot"):
+		_items[i].remove_meta("foot")
 
 func _process(d: float) -> void:
 	_t += d
@@ -144,21 +152,23 @@ func _process(d: float) -> void:
 				node.rotation.z = sin(_t * 1.2 + ph) * 0.06
 				node.rotation.x = cos(_t + ph) * 0.04
 			"wander":
-				# pobíhá po pokoji kolem svého místa, občas se zastaví
-				var home: Vector3 = node.get_parent().position
-				if not m.has("to") or node.position.distance_to(m["to"]) < 0.04:
+				# pobíhá po pokoji, ale obchází nábytek (cíl i cestu volí jen přes volnou podlahu)
+				var par: Node3D = node.get_parent()
+				var cur: Vector3 = par.transform * node.position
+				cur.y = 0.0
+				if not m.has("tw") or cur.distance_to(m["tw"]) < 0.05:
 					if m.get("pause", false) and randf() < 0.5:
 						m["wait"] = _t + randf_range(0.8, 2.5)
-					var tgt := Vector3(randf_range(-1.4, 1.4), 0, randf_range(-1.0, 1.0))
-					var gl := home + tgt
-					gl.x = clampf(gl.x, -HALF.x + 0.25, HALF.x - 0.25); gl.z = clampf(gl.z, -HALF.y + 0.25, HALF.y - 0.25)
-					m["to"] = gl - home
+					m["tw"] = _free_target(cur, par)
 				if _t < float(m.get("wait", 0.0)): continue
-				var dv: Vector3 = (m["to"] as Vector3) - node.position
+				var dv: Vector3 = (m["tw"] as Vector3) - cur
 				var step := float(m["sp"]) * get_process_delta_time()
-				node.position += dv.normalized() * min(step, dv.length())
-				node.rotation.y = lerp_angle(node.rotation.y, atan2(dv.x, dv.z), 0.15)
-				node.position.y = abs(sin(_t * 18.0)) * 0.006
+				var nxt: Vector3 = cur + dv.normalized() * minf(step, dv.length())
+				if _floor_free(cur.x, cur.z, par) and not _floor_free(nxt.x, nxt.z, par):
+					m["tw"] = _free_target(cur, par); continue
+				var loc: Vector3 = par.transform.affine_inverse() * nxt
+				node.position = Vector3(loc.x, abs(sin(_t * 18.0)) * 0.006, loc.z)
+				node.rotation.y = lerp_angle(node.rotation.y, atan2(dv.x, dv.z) - par.rotation.y, 0.15)
 			"fly":
 				var fa := _t * 0.7 + ph
 				node.position = Vector3(sin(fa) * 0.8, 0.75 + sin(fa * 2.3) * 0.25, sin(fa * 2.0) * 0.45)
@@ -252,6 +262,27 @@ func push(i: int, dir: Vector3, items: Array) -> void:
 			items[i][1] = to.x; items[i][2] = to.z
 
 ## Hraní s kostkami: zase se postaví do komínku.
+## Je podlaha v bodě x, z volná (žádný nábytek)? Koberce a malé věci nevadí.
+func _floor_free(x: float, z: float, skip: Node3D = null) -> bool:
+	if absf(x) > HALF.x - 0.15 or absf(z) > HALF.y - 0.15: return false
+	for n in _items:
+		if n == skip or not n.has_meta("foot"): continue
+		var f: Rect2 = n.get_meta("foot")
+		if f.has_point(Vector2(x, z)): return false
+	return true
+
+## Náhodný cíl, ke kterému vede volná cesta.
+func _free_target(cur: Vector3, skip: Node3D) -> Vector3:
+	var stuck := not _floor_free(cur.x, cur.z, skip)
+	for k in 14:
+		var t := cur + Vector3(randf_range(-1.6, 1.6), 0, randf_range(-1.2, 1.2))
+		var ok := true
+		for s in range(1, 11):
+			var q := cur.lerp(t, s / 10.0)
+			if not _floor_free(q.x, q.z, skip) and not (stuck and s < 6): ok = false; break
+		if ok: return t
+	return cur
+
 ## Nejvyšší plocha (stůl, skříňka, polička) pod bodem x, z. Jinak 0 = podlaha.
 func top_at(x: float, z: float, skip: int) -> float:
 	var best := 0.0
@@ -333,7 +364,7 @@ static func mural_mat(k: int) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new(); m.roughness = 0.9
 	m.albedo_texture = mural_tex(k)
 	m.uv1_triplanar = true
-	m.uv1_scale = Vector3(1.0 / 3.0, -1.0 / 2.2, 1.0 / 3.0)
+	m.uv1_scale = Vector3(1.0 / 3.0, 1.0 / 2.2, 1.0 / 3.0)
 	m.uv1_offset = Vector3(0, 0.5, 0)
 	_pattern_cache[key] = m
 	return m
